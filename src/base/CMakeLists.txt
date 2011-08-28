@@ -1,5 +1,8 @@
 
-include_directories(..)
 
 add_library(cheaproute-base
-  event_loop.cc)
+  broadcaster.cc
+  common.cc
+  event_loop.cc
+  file_descriptor.cc
+  ip_address.cc)
