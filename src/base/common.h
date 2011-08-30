@@ -2,13 +2,14 @@
 
 // Ideally, this file should be set up as a precompiled header
 
+#include "base/scoped_ptr.h"
+
 #include <tr1/functional>
 #include <tr1/memory>
 #include <tr1/unordered_map>
 #include <string>
 #include <vector>
 #include <deque>
-#include <boost/scoped_ptr.hpp>
 #include <cassert>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,7 +24,6 @@ namespace cheaproute
   using std::tr1::function;
   using std::tr1::bind;
   using std::tr1::shared_ptr;
-  using boost::scoped_ptr;
   using std::tr1::placeholders::_1;
   using std::tr1::enable_shared_from_this;
   using std::tr1::weak_ptr;
