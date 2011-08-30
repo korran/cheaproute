@@ -78,4 +78,33 @@ namespace cheaproute
     scoped_ptr<StringPrinterInternals> internals_;
   };
   
+  // This class is used to indicate that we are
+  // transferring ownership of an object
+  template<typename T>
+  class TransferredOwnershipPtr {
+  public:
+    T* Release() {
+      assert(ptr_);
+      T* result = ptr_;
+      ptr_ = NULL;
+      return result;
+    }
+    
+  private:
+    // Use TransferOwnership() to create one of these
+    TransferredOwnershipPtr(T* ptr) 
+        : ptr_(ptr) {
+      assert(ptr_);
+    }
+    T* ptr_;
+    
+    template<class U>
+    friend TransferredOwnershipPtr<U> TransferOwnership(U* ptr);
+  };
+  
+  template<typename T>
+  TransferredOwnershipPtr<T> TransferOwnership(T* ptr) {
+    return TransferredOwnershipPtr<T>(ptr);
+  }
+  
 };

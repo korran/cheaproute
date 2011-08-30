@@ -5,4 +5,15 @@ add_library(cheaproute-base
   common.cc
   event_loop.cc
   file_descriptor.cc
-  ip_address.cc)
+  ip_address.cc
+  stream.cc)
+
+add_executable(cheaproute-base-tests
+               stream_test.cc)
+
+add_test(cheaproute-base-tests cheaproute-base-tests)
+
+target_link_libraries(cheaproute-base-tests 
+                      cheaproute-base
+                      gtest_main)
+
