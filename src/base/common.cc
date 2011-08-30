@@ -36,7 +36,7 @@ void CheckVoidPtrNotNull(void* ptr, const char* name) {
 
 void CheckPosixPtrOp(const void* opResult, const char* description) {
   if (!opResult) {
-    AbortWithPosixError(description);
+    AbortWithPosixError("%s", description);
   }
 }
 
