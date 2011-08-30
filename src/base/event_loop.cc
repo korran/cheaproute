@@ -85,7 +85,7 @@ EventLoop::EventLoop()
   : loop_(EV_DEFAULT) {}
 
 void EventLoop::Run() {
-  ev_run(loop_, 0);
+  ev_loop(loop_, 0);
 }
 
 void EventLoop::Schedule(double seconds_from_now, const function<void()>& func) {
