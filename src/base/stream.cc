@@ -3,6 +3,7 @@
 
 #include "base/stream.h"
 #include <algorithm>
+#include <string.h>
 
 namespace cheaproute {
 
@@ -68,5 +69,19 @@ int BufferedInputStream::ReadSlowPath() {
   else
     return -1;
 }
+
+MemoryInputStream::MemoryInputStream(const void* data, size_t size)
+  : pos_(0) {
+  data_.resize(size);
+  memcpy(&data_[0], data, data_.size());
+}
+
+ssize_t MemoryInputStream::Read(void* buf, size_t count) {
+  size_t copy_size = std::min(count, data_.size() - pos_);
+  memcpy(buf, &data_[pos_], copy_size);
+  pos_ += copy_size;
+  return copy_size;
+}
+  
 
 }

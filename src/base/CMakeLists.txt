@@ -6,9 +6,11 @@ add_library(cheaproute-base
   event_loop.cc
   file_descriptor.cc
   ip_address.cc
+  json_reader.cc
   stream.cc)
 
 add_executable(cheaproute-base-tests
+               json_reader_test.cc
                stream_test.cc)
 
 add_test(cheaproute-base-tests cheaproute-base-tests)

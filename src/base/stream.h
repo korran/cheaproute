@@ -48,4 +48,15 @@ private:
   vector<uint8_t>::iterator end_;
 };
 
+class MemoryInputStream : public InputStream {
+public:
+  MemoryInputStream(const void* data, size_t size);
+  virtual ssize_t Read(void* buf, size_t count);
+  
+private:
+  vector<uint8_t> data_;
+  size_t pos_;
+};
+
+
 }

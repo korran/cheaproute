@@ -8,3 +8,5 @@ add_executable(cheaproute
 target_link_libraries(cheaproute cheaproute-base ev)
 
 add_subdirectory(base)
+
+add_subdirectory(test_util)

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <stack>
 #include <cassert>
 #include <stdint.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@ namespace cheaproute
   using std::tr1::weak_ptr;
   using std::tr1::unordered_map;
   using std::deque;
+  using std::stack;
   
   void AbortWithMessage(const char* format_string, ...)
       __attribute__ ((format (printf, 1, 2)));
@@ -107,4 +109,5 @@ namespace cheaproute
     return TransferredOwnershipPtr<T>(ptr);
   }
   
-};
+}
+
