@@ -1,7 +1,7 @@
 
 #include "base/common.h"
 
-#include "base/ip_address.h"
+#include "net/ip_address.h"
 
 #include <netinet/in.h>
 #include <arpa/inet.h>

@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include "netlink.h"
+#include "net/netlink.h"
 
 namespace cheaproute
 {

@@ -5,7 +5,6 @@ add_library(cheaproute-base
   common.cc
   event_loop.cc
   file_descriptor.cc
-  ip_address.cc
   json_reader.cc
   stream.cc)
 
