@@ -6,7 +6,7 @@
 namespace cheaproute {
   
 struct Ip4Address {
-  unsigned char addr[4];
+  uint8_t addr[4];
   
   Ip4Address() {
     addr[0] = 0;
@@ -14,12 +14,7 @@ struct Ip4Address {
     addr[2] = 0;
     addr[3] = 0;
   }
-  Ip4Address(uint32_t val) {
-    addr[0] = static_cast<char>((val & 0xff000000) >> 24);
-    addr[1] = static_cast<char>((val & 0x00ff0000) >> 16);
-    addr[2] = static_cast<char>((val & 0x0000ff00) >> 8);
-    addr[3] = static_cast<char>((val & 0x000000ff) >> 0);
-  }
+  Ip4Address(uint32_t val);
   Ip4Address(const void* ptr, size_t size);
   
   string ToString() const;
@@ -33,7 +28,7 @@ struct Ip4Address {
 };
 
 struct Ip6Address {
-  unsigned char addr[16];
+  uint8_t addr[16];
   
   Ip6Address() {
     memset(addr, 0, sizeof(addr));

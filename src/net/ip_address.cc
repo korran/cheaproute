@@ -10,10 +10,17 @@
 
 namespace cheaproute {
 
+Ip4Address::Ip4Address(uint32_t network_val) {
+  uint32_t host_val = htonl(network_val);
+  addr[0] = static_cast<char>((host_val & 0xff000000) >> 24);
+  addr[1] = static_cast<char>((host_val & 0x00ff0000) >> 16);
+  addr[2] = static_cast<char>((host_val & 0x0000ff00) >> 8);
+  addr[3] = static_cast<char>((host_val & 0x000000ff) >> 0);
+}
 Ip4Address::Ip4Address(const void* ptr, size_t size) {
   assert(size == 4);
   memcpy(&addr[0], ptr, 4);
-}  
+}
 
 string Ip4Address::ToString() const {
   struct in_addr sock_addr;
