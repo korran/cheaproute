@@ -13,6 +13,12 @@ int CheckFdOp(int result, const char* opDescription) {
   }
   return result;
 }
+ssize_t CheckFdOp(ssize_t result, const char* opDescription) {
+  if (result == -1) {
+    AbortWithPosixError("Fatal error while %s", opDescription);
+  }
+  return result;
+}
 
 void FileDescriptor::set(int value) {
   if (fd_ != -1) {

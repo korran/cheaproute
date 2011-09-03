@@ -3,7 +3,8 @@
 namespace cheaproute {
 
 int CheckFdOp(int result, const char* opDescription);
-  
+ssize_t CheckFdOp(ssize_t result, const char* opDescription);
+
 class FileDescriptor {
 public:
   FileDescriptor()

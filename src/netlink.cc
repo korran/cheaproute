@@ -55,7 +55,7 @@ namespace {
     }
     
     const vector<char>& Build() {
-      header()->nlmsg_len = message_.size();
+      header()->nlmsg_len = static_cast<uint32_t>(message_.size());
       return message_;
     }
     
@@ -243,7 +243,7 @@ void Netlink::BeginAddrQuery(int address_family) {
   NetlinkMessageBuilder nlBuilder(RTM_GETADDR, NLM_F_REQUEST | NLM_F_ROOT);
   nlBuilder.header()->nlmsg_seq = ++sequence_number_;
   NetlinkHeader<ifaddrmsg> ifheader = nlBuilder.CreateHeader<ifaddrmsg>();
-  ifheader->ifa_family = address_family;
+  ifheader->ifa_family = static_cast<uint8_t>(address_family);
 
   SendMessage(nlBuilder.Build());
 }

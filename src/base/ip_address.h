@@ -15,10 +15,10 @@ struct Ip4Address {
     addr[3] = 0;
   }
   Ip4Address(uint32_t val) {
-    addr[0] = (val & 0xff000000) >> 24;
-    addr[1] = (val & 0x00ff0000) >> 16;
-    addr[2] = (val & 0x0000ff00) >> 8;
-    addr[3] = (val & 0x000000ff) >> 0;
+    addr[0] = static_cast<char>((val & 0xff000000) >> 24);
+    addr[1] = static_cast<char>((val & 0x00ff0000) >> 16);
+    addr[2] = static_cast<char>((val & 0x0000ff00) >> 8);
+    addr[3] = static_cast<char>((val & 0x000000ff) >> 0);
   }
   Ip4Address(const void* ptr, size_t size);
   
