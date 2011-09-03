@@ -51,12 +51,15 @@ static void TestCharacterByCharacter(size_t max_read_size, size_t buffer_size) {
   BufferedInputStream stream(TransferOwnership<InputStream>(
     new FakeInputStream(max_read_size, "Hello World!")), buffer_size);
   
+  ASSERT_EQ('H', stream.Peek());
   ASSERT_EQ('H', stream.Read());
   ASSERT_EQ('e', stream.Read());
   ASSERT_EQ('l', stream.Read());
   ASSERT_EQ('l', stream.Read());
   ASSERT_EQ('o', stream.Read());
   ASSERT_EQ(' ', stream.Read());
+  ASSERT_EQ('W', stream.Peek());
+  ASSERT_EQ('W', stream.Peek());
   ASSERT_EQ('W', stream.Read());
   ASSERT_EQ('o', stream.Read());
   ASSERT_EQ('r', stream.Read());
@@ -66,6 +69,7 @@ static void TestCharacterByCharacter(size_t max_read_size, size_t buffer_size) {
   ASSERT_EQ(-1, stream.Read());
   ASSERT_EQ(-1, stream.Read());
   ASSERT_EQ(-1, stream.Read());
+  ASSERT_EQ(-1, stream.Peek());
 }
 
 TEST(BufferedInputStreamTest, CharacterByCharacterReading) {

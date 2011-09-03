@@ -16,7 +16,7 @@ public:
 class BufferedInputStream : public InputStream {
 public:
   BufferedInputStream(TransferredOwnershipPtr<InputStream> delegatee, 
-                      int buffer_size);
+                      size_t buffer_size);
   
   ssize_t Read(void* buf, size_t count);
   
@@ -29,8 +29,17 @@ public:
     }
   }
   
+  int Peek() {
+    if (pos_ != end_) {
+      return *pos_;
+    } else {
+      return PeekSlowPath();
+    }
+  }
+  
 private:
   int ReadSlowPath();
+  int PeekSlowPath();
   ssize_t FillBuffer();
   
   scoped_ptr<InputStream> delegatee_;

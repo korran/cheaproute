@@ -7,7 +7,7 @@
 namespace cheaproute {
 
   
-BufferedInputStream::BufferedInputStream(TransferredOwnershipPtr<InputStream> delegatee, int buffer_size) 
+BufferedInputStream::BufferedInputStream(TransferredOwnershipPtr<InputStream> delegatee, size_t buffer_size) 
   : delegatee_(delegatee.Release()) {
   buffer_.resize(buffer_size);
   pos_ = buffer_.begin();
@@ -53,6 +53,13 @@ ssize_t BufferedInputStream::FillBuffer() {
   pos_ = buffer_.begin();
   end_ = pos_ + std::max(static_cast<ssize_t>(0), bytes_read);
   return bytes_read;
+}
+
+int BufferedInputStream::PeekSlowPath() {
+  if (FillBuffer() > 0)
+    return *pos_;
+  else
+    return -1;
 }
 
 int BufferedInputStream::ReadSlowPath() {
