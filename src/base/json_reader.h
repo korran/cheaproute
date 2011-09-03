@@ -46,6 +46,7 @@ public:
   int64_t int_value() const { return int_value_; }
   double float_value() const { return double_value_; }
   JsonError error_code() const { return error_code_; }
+  bool bool_value() const { return bool_value_; }
   bool Next();
   
 private:

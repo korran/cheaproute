@@ -95,13 +95,17 @@ bool JsonReader::ReadValue(int initial_char) {
 bool JsonReader::ReadKeyword(int initial_char, const char* keyword) {
   int ch = initial_char;
   
-  for (const char* p = keyword ; *p != '\0'; p++, ch = stream_->Read()) {
+  for (const char* p = keyword ; *p != '\0'; p++) {
+    if (p != keyword)
+      stream_->Read();
+    
     if (ch == -1)
       return false;
     if (ch != *p) {
       error_code_ = JsonError_UnexpectedCharacter;
       return false;
     }
+    ch = stream_->Peek();
   }
   return true;
 }
@@ -360,6 +364,14 @@ bool JsonReader::Next() {
         if (ch == '}') {
           token_type_ = JSON_EndObject;
           return PopMode();
+        }
+        if (token_type_ != JSON_StartObject) {
+          if (ch != ',') {
+            error_code_ = JsonError_UnexpectedCharacter;
+            return false;
+          }
+          if (!SkipWhitespace(&ch)) 
+            return false;
         }
         token_type_ = JSON_PropertyName;
         if (!ReadString(ch))

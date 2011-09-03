@@ -22,6 +22,11 @@ static void ExpectInteger(int64_t expected_value, JsonReader* reader) {
   ASSERT_EQ(expected_value, reader->int_value());
 }
 
+static void ExpectBoolean(bool expected_value, JsonReader* reader) {
+  ExpectToken(JSON_Boolean, reader);
+  ASSERT_EQ(expected_value, reader->bool_value());
+}
+
 static void ExpectError(JsonError expected_error, const char* json) {
   JsonReader reader(CreateBufferedInputStream(json));
   while (reader.Next()) {
@@ -122,6 +127,39 @@ TEST(JsonReaderTest, BadFloat) {
   ExpectError(JsonError_OutOfRange, "5e1230");
   ExpectError(JsonError_OutOfRange, "-5e1230");
 }
+
+TEST(JsonReaderTest, Null) {
+  JsonReader reader(CreateBufferedInputStream("null"));
+  ExpectToken(JSON_Null, &reader);
+  ExpectEnd(&reader);
+}
+TEST(JsonReaderTest, True) {
+  JsonReader reader(CreateBufferedInputStream("true"));
+  ExpectBoolean(true, &reader);
+  ExpectEnd(&reader);
+}
+TEST(JsonReaderTest, False) {
+  JsonReader reader(CreateBufferedInputStream("false"));
+  ExpectBoolean(false, &reader);
+  ExpectEnd(&reader);
+}
+
+static void TestKeywordArray(const char* json) {
+  JsonReader reader(CreateBufferedInputStream(json));
+  ExpectToken(JSON_StartArray, &reader);
+  ExpectBoolean(true, &reader);
+  ExpectBoolean(false, &reader);
+  ExpectToken(JSON_Null, &reader);
+  ExpectToken(JSON_EndArray, &reader);
+  ExpectEnd(&reader);
+}
+TEST(JsonReaderTest, KeywordArray) {
+  TestKeywordArray("[true,false,null]");
+  TestKeywordArray(" [ true , false , null ] ");
+  TestKeywordArray(" \r\n\t[ \r\n\ttrue \t\n\t, \r\n\tfalse \r\n\t,"
+                   " \r\n\tnull ] ");
+}
+
 void TestEmptyArray(const char* json) {
   JsonReader reader(CreateBufferedInputStream(json));
   ExpectToken(JSON_StartArray, &reader);
@@ -211,15 +249,39 @@ static void TestNestedObject(const char* json) {
   ExpectEnd(&reader);
 }
 
-TEST(JsonReaderTest, NestedObject) {
+TEST(JsonReaderTest, TestNestedObject) {
   TestNestedObject("{\"nested1\":{\"nested2\":{}}}");
   TestNestedObject(" { \"nested1\" : { \"nested2\" : { } } } ");
   TestNestedObject(" \r\n\t{ \r\n\t\"nested1\" \r\n\t: \r\n\t{ \r\n\t\"n"
                    "ested2\" \r\n\t: \r\n\t{ \r\n\t} \r\n\t} \r\n\t} \r\n\t");
 }
 
-TEST(JsonReaderTest, SimpleObject) {
-
+static void TestComplexObject(const char* json) {
+  JsonReader reader(CreateBufferedInputStream(json));
+  ExpectToken(JSON_StartObject, &reader);
+  ExpectPropertyName("a", &reader);
+  ExpectString("A", &reader);
+  ExpectPropertyName("b", &reader);
+  ExpectInteger(123, &reader);
+  ExpectPropertyName("c", &reader);
+  ExpectFloat(1.5, &reader);
+  ExpectPropertyName("d", &reader);
+  ExpectToken(JSON_StartArray, &reader);
+  ExpectInteger(1, &reader);
+  ExpectInteger(2, &reader);
+  ExpectToken(JSON_StartObject, &reader);
+  ExpectPropertyName("foo", &reader);
+  ExpectString("bar", &reader);
+  ExpectToken(JSON_EndObject, &reader);
+  ExpectToken(JSON_EndArray, &reader);
+  ExpectToken(JSON_EndObject, &reader);
+  ExpectEnd(&reader);
+}
+TEST(JsonReaderTest, ComplexObject) {
+  TestComplexObject("{\"a\":\"A\",\"b\":123,\"c\":1.5,\"d\":[1,2,"
+                    "{\"foo\":\"bar\"}]}");
+  TestComplexObject(" { \"a\" : \"A\" , \"b\" : 123 , \"c\" : 1.5, \"d\" : "
+                    "[ 1 , 2 , { \"foo\" : \"bar\" } ] } ");
 }
 
 }
