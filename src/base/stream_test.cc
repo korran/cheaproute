@@ -61,5 +61,38 @@ TEST(BufferedInputStreamTest, NormalReading) {
   ASSERT_EQ("", ReadString(&stream, 10));
 }
 
+TEST(BufferedOutputStreamTest, CharacterByCharacterWriting) {
+  MemoryOutputStream* memOutStream = new MemoryOutputStream();
+  BufferedOutputStream stream(TransferOwnership<OutputStream>(memOutStream), 5);
+  stream.Write('a');
+  stream.Write('b');
+  stream.Write('c');
+  stream.Write('d');
+  stream.Write('e');
+  stream.Write('f');
+  stream.Write('g');
+  stream.Flush();
+  AssertStreamContents("abcdefg", memOutStream);
+}
+
+TEST(BufferedOutputStreamTest, SmallWrites) {
+  MemoryOutputStream* memOutStream = new MemoryOutputStream();
+  BufferedOutputStream stream(TransferOwnership<OutputStream>(memOutStream), 5);
+  stream.Write("ab", 2);
+  stream.Write("cd", 2);
+  stream.Write("ef", 2);
+  stream.Write("gh", 2);
+  stream.Flush();
+  AssertStreamContents("abcdefgh", memOutStream);
+}
+
+TEST(BufferedOutputStreamTest, SmallWriteThenBigWrite) {
+  MemoryOutputStream* memOutStream = new MemoryOutputStream();
+  BufferedOutputStream stream(TransferOwnership<OutputStream>(memOutStream), 5);
+  stream.Write("ab", 2);
+  stream.Write("cdefghijkl", 10);
+  stream.Flush();
+  AssertStreamContents("abcdefghijkl", memOutStream);
+}
 
 }

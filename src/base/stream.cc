@@ -70,6 +70,40 @@ int BufferedInputStream::ReadSlowPath() {
     return -1;
 }
 
+BufferedOutputStream::BufferedOutputStream(TransferredOwnershipPtr<OutputStream> delegatee, size_t buffer_size)
+    : delegatee_(delegatee.Release()) {
+  buffer_.resize(buffer_size);
+  pos_ = buffer_.begin();
+  end_ = buffer_.end();
+}
+
+void BufferedOutputStream::Write(const void* buf, size_t size) {
+  if (size >= buffer_.size() / 2) {
+    Flush();
+    delegatee_->Write(buf, size);
+  } else {
+    const uint8_t* src = static_cast<const uint8_t*>(buf);
+    const uint8_t* src_end = src + size;
+    while (src < src_end) {
+      size_t write_size = std::min(src_end - src, end_ - pos_);
+      pos_ = std::copy(src, src + write_size, pos_);
+      src += write_size;
+      if (end_ == pos_) {
+        Flush();
+      }
+    }
+  }
+  
+}
+
+void BufferedOutputStream::Flush() {
+  size_t num_bytes_to_flush = pos_ - buffer_.begin();
+  if (num_bytes_to_flush > 0) {
+    delegatee_->Write(&buffer_[0], num_bytes_to_flush);
+    pos_ = buffer_.begin();
+  }
+}
+
 MemoryInputStream::MemoryInputStream(const void* data, size_t size)
   : pos_(0) {
   data_.resize(size);
@@ -82,6 +116,18 @@ ssize_t MemoryInputStream::Read(void* buf, size_t count) {
   pos_ += copy_size;
   return copy_size;
 }
-  
+
+MemoryOutputStream::MemoryOutputStream() 
+    : pos_(0) {
+  buffer_.resize(16);
+} 
+
+void MemoryOutputStream::Write(const void* buf, size_t count) {
+  if (count > buffer_.size()) {
+    buffer_.resize(std::max(buffer_.size() * 2, count));
+  }
+  memcpy(&buffer_[pos_], buf, count);
+  pos_ += count;
+}
 
 }
