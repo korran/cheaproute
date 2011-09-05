@@ -109,5 +109,15 @@ namespace cheaproute
     return TransferredOwnershipPtr<T>(ptr);
   }
   
+  template <class T, size_t N>
+  size_t ArrayLength(T (&x)[N]) { 
+    return N;
+  }
+  
+  extern const char kHexChars[];
+  extern const int8_t kHexValues[];
+  
+  string FormatHex(const void* ptr, size_t size);
+  bool ParseHex(const char* str, vector<uint8_t>* destination);
 }
 

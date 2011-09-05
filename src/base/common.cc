@@ -71,4 +71,72 @@ void StringPrinter::Printf(const char* format_string, ...) {
   fflush(internals_->file);
 }
 
+const int8_t kHexValues[] = { 
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+   0,  1,  2,  3,  4,  5,  6,  7,    8,  9, -1, -1, -1, -1, -1, -1,
+  -1,0xa,0xb,0xc,0xd,0xe,0xf, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1,0xa,0xb,0xc,0xd,0xe,0xf, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,
+  -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1
+};
+
+const char kHexChars[] = {'0', '1', '2', '3', '4', '5', '6', '7', 
+                        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+string FormatHex(const void* ptr, size_t size) {
+  string result;
+  
+  const uint8_t* p = static_cast<const uint8_t*>(ptr);
+  const uint8_t* end = p + size;
+  
+  int line_position = 0;
+  for(; p < end; p++) {
+    result.push_back(kHexChars[(*p & 0xf0) >> 4]);
+    result.push_back(kHexChars[(*p & 0x0f) >> 0]);
+    if (p + 1 < end) {
+      line_position++;
+      if (line_position == 8) {
+        result.push_back(' ');
+      }
+      if (line_position == 16) {
+        result.push_back('\n');
+        line_position = 0;
+      } else {
+        result.push_back(' ');
+      }
+    }
+
+  }
+  return result;
+}
+
+bool ParseHex(const char* str, vector<uint8_t>* destination) {
+  
+  for(const char* p = str; *p; p++) {
+    if (*p == '\t' || *p == '\r' || *p == '\n' || *p == ' ')
+      continue;
+    
+    int nibble_1 = kHexValues[static_cast<int>(*p)];
+    if (!*++p)
+      return false;
+    int nibble_2 = kHexValues[static_cast<int>(*p)];
+    if (nibble_1 == -1 || nibble_2 == -1)
+      return false;
+    
+    destination->push_back(static_cast<uint8_t>((nibble_1 << 4) | nibble_2));
+  }
+  return true;
+}
+
 }

@@ -19,10 +19,6 @@ void JsonWriter::Flush() {
   stream_->Flush();
 }
 
-const char kHexChars[] = {'0', '1', '2', '3', '4', '5', '6', '7', 
-                          '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-
-
 const char kSpecialEscapes[] = { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 ,
                                 'b','t','n', 0 ,'f','r', 0,  0 ,
                                  0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 ,
