@@ -97,4 +97,21 @@ private:
   size_t pos_;
 };
 
+
+class FileOutputStream : public OutputStream {
+public:
+  FileOutputStream(int fd, bool take_fd_ownership)
+    : fd_(fd), take_fd_ownership_(take_fd_ownership) {
+  }
+  
+  virtual ~FileOutputStream();
+  
+  void Write(const void* buf, size_t count);
+  void Flush() {}
+  
+private:
+  int fd_;
+  bool take_fd_ownership_;
+};
+
 }

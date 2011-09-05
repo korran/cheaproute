@@ -2,6 +2,8 @@
 #include "base/common.h"
 
 #include "base/stream.h"
+#include "base/file_descriptor.h"
+
 #include <algorithm>
 #include <string.h>
 
@@ -128,6 +130,24 @@ void MemoryOutputStream::Write(const void* buf, size_t count) {
   }
   memcpy(&buffer_[pos_], buf, count);
   pos_ += count;
+}
+
+FileOutputStream::~FileOutputStream() {
+  if (take_fd_ownership_) {
+    close(fd_);
+  }
+}
+
+void FileOutputStream::Write(const void* buf, size_t count) {
+  size_t total_bytes_written = 0;
+  while (total_bytes_written < count) {
+    size_t bytes_written = CheckFdOp(write(fd_, buf, count), "writing to fd");
+    if (bytes_written == 0) {
+      AbortWithMessage("write() returned 0");
+    }
+    total_bytes_written += bytes_written;
+    
+  }
 }
 
 }
