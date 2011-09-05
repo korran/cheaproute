@@ -6,17 +6,22 @@
 
 namespace cheaproute {
   
-JsonWriter::JsonWriter(TransferredOwnershipPtr<BufferedOutputStream> stream)
-  : mode_(JsonWriterMode_DocumentStart) {
+JsonWriter::JsonWriter(TransferredOwnershipPtr<BufferedOutputStream> stream, 
+                       JsonWriterFlags flags)
+  : flags_(flags),
+    mode_(JsonWriterMode_DocumentStart),
+    indent_(0),
+    pack_(0) {
   stream_.reset(stream.Release());
 }
 
 void JsonWriter::Flush() {
   stream_->Flush();
 }
-  
+
 const char kHexChars[] = {'0', '1', '2', '3', '4', '5', '6', '7', 
                           '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
 
 const char kSpecialEscapes[] = { 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0 ,
                                 'b','t','n', 0 ,'f','r', 0,  0 ,
@@ -27,10 +32,16 @@ void JsonWriter::WritePropertyName(const char* str) {
   assert(mode_ == JsonWriterMode_StartObject || mode_ == JsonWriterMode_ObjectPropertyName);
   if (mode_ == JsonWriterMode_ObjectPropertyName) {
     stream_->Write(',');
+    if (should_indent() && pack_) {
+      stream_->Write(' ');
+    }
   }
+  BeginNewLineIfNecessary();
   mode_ = JsonWriterMode_ObjectPropertyValue;
   WriteRawString(str);
   stream_->Write(':');
+  if (should_indent())
+    stream_->Write(' ');
 }
                                  
 void JsonWriter::WriteString(const char* str) {
@@ -93,26 +104,17 @@ void JsonWriter::WriteNull() {
   stream_->Write("null", 4);
 }
 
-void JsonWriter::BeginValue() {
-  assert(mode_ != JsonWriterMode_ObjectPropertyName);
-  if (mode_ == JsonWriterMode_ObjectPropertyValue) {
-    mode_ = JsonWriterMode_ObjectPropertyName;
-  }
-  if (mode_ == JsonWriterMode_MiddleArray) {
-    stream_->Write(',');
-  }
-  if (mode_ == JsonWriterMode_StartArray) {
-    mode_ = JsonWriterMode_MiddleArray;
-  }
-}
 void JsonWriter::BeginArray() {
   BeginValue();
   stream_->Write('[');
   mode_stack_.push(mode_);
   mode_ = JsonWriterMode_StartArray;
+  indent_ += 2;
 }
 void JsonWriter::EndArray() {
   assert(mode_ == JsonWriterMode_StartArray || mode_ == JsonWriterMode_MiddleArray);
+  indent_ -= 2;
+  BeginNewLineIfNecessary();
   stream_->Write(']');
   mode_ = mode_stack_.top();
   mode_stack_.pop();
@@ -122,13 +124,45 @@ void JsonWriter::BeginObject() {
   stream_->Write('{');
   mode_stack_.push(mode_);
   mode_ = JsonWriterMode_StartObject;
+  indent_ += 2;
 }
 void JsonWriter::EndObject() {
   assert(mode_ == JsonWriterMode_ObjectPropertyName || mode_ == JsonWriterMode_StartObject);
+  indent_ -= 2; 
+  BeginNewLineIfNecessary();
   stream_->Write('}');
   mode_ = mode_stack_.top();
   mode_stack_.pop();
-  
 }
+
+void JsonWriter::BeginValue() {
+  assert(mode_ != JsonWriterMode_ObjectPropertyName);
+  if (mode_ == JsonWriterMode_ObjectPropertyValue) {
+    mode_ = JsonWriterMode_ObjectPropertyName;
+  }
+  if (mode_ == JsonWriterMode_MiddleArray) {
+    stream_->Write(',');
+    if (should_indent() && pack_) {
+      stream_->Write(' ');
+    }
+  }
+  if (mode_ == JsonWriterMode_StartArray) {
+    mode_ = JsonWriterMode_MiddleArray;
+  }
+  if (mode_ == JsonWriterMode_StartArray ||
+      mode_ == JsonWriterMode_MiddleArray) {
+    BeginNewLineIfNecessary();
+  }
+}
+
+void JsonWriter::BeginNewLineIfNecessary() {
+  if (should_indent() && pack_ == 0) {
+    stream_->Write('\n');
+    for (int i = 0; i < indent_; i++) {
+      stream_->Write(' ');
+    }
+  }
+}
+
 
 }

@@ -5,30 +5,11 @@
 #include "test_util/stream.h"
 #include "base/json_reader.h"
 #include "json_writer.h"
+#include "test_util/json.h"
 
 #include <stdint.h>
 
 namespace cheaproute {
-
-class JsonWriterFixture {
-public:
-  JsonWriterFixture() {
-    mem_output_stream_ = new MemoryOutputStream();
-    
-    writer_.reset(new JsonWriter(TransferOwnership(new BufferedOutputStream(
-      TransferOwnership<OutputStream>(mem_output_stream_), 4096))));
-  }
-  void AssertContents(const string& expected_json) {
-    writer_->Flush();
-    AssertStreamContents(expected_json, mem_output_stream_);
-  }
-  
-  JsonWriter* writer() { return writer_.get(); }
-  
-private:
-  MemoryOutputStream* mem_output_stream_;
-  scoped_ptr<JsonWriter> writer_;
-};
 
 void TestJsonWriteString(const string& expected_json, const string& value) {
   JsonWriterFixture fixture;
@@ -192,5 +173,82 @@ TEST(JsonWriter, Array) {
                            "[0,1]"
                          "]");
 }
+
+TEST(JsonWriter, Indent) {
+  JsonWriterFixture fixture(JsonWriterFlags_Indent);
+  JsonWriter* writer = fixture.writer();
+  writer->BeginObject();
+  writer->WritePropertyName("foo");
+  writer->WriteString("bar");
+  writer->WritePropertyName("array");
+  writer->BeginArray();
+  writer->WriteInteger(0);
+  writer->WriteInteger(1);
+  writer->WriteInteger(2);
+  writer->EndArray();
+  writer->WritePropertyName("object");
+  writer->BeginObject();
+  writer->WritePropertyName("a");
+  writer->WriteString("b");
+  writer->EndObject();
+  writer->EndObject(); 
   
+  fixture.AssertContents("{\n"
+                         "  \"foo\": \"bar\",\n"
+                         "  \"array\": [\n"
+                         "    0,\n"
+                         "    1,\n"
+                         "    2\n"
+                         "  ],\n"
+                         "  \"object\": {\n"
+                         "    \"a\": \"b\"\n"
+                         "  }\n"
+                         "}");
+}
+
+TEST(JsonWriter, IndentWithPackedLines) {
+  JsonWriterFixture fixture(JsonWriterFlags_Indent);
+  JsonWriter* writer = fixture.writer();
+  writer->BeginObject();
+  writer->WritePropertyName("foo");
+  writer->WriteString("bar");
+  writer->WritePropertyName("array");
+  
+  writer->BeginPack();
+  writer->BeginArray();
+  writer->WriteInteger(0);
+  writer->WriteInteger(1);
+  writer->WriteInteger(2);
+  writer->EndArray();
+  writer->EndPack();
+  
+  writer->WritePropertyName("object");
+  
+  writer->BeginPack();
+  writer->BeginObject();
+  writer->WritePropertyName("a");
+  writer->WriteString("b");
+  writer->EndObject();
+  writer->EndPack();
+  
+  writer->WritePropertyName("x");
+  writer->BeginPack();
+  writer->WriteString("X");
+  writer->WritePropertyName("y");
+  writer->WriteString("Y");
+  writer->WritePropertyName("z");
+  writer->WriteString("Z");
+  writer->EndPack();
+  
+  writer->EndObject(); 
+  
+  fixture.AssertContents("{\n"
+                         "  \"foo\": \"bar\",\n"
+                         "  \"array\": [0, 1, 2],\n"
+                         "  \"object\": {\"a\": \"b\"},\n"
+                         "  \"x\": \"X\", \"y\": \"Y\", \"z\": \"Z\"\n"
+                         "}");
+}
+
+
 }
