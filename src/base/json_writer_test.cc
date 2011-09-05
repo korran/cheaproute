@@ -3,6 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "test_util/stream.h"
+#include "test_util/json.h"
 #include "base/json_reader.h"
 #include "json_writer.h"
 #include "test_util/json.h"

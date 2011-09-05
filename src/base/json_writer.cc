@@ -70,7 +70,13 @@ void JsonWriter::WriteRawString(const char* str) {
   }
   stream_->Write('"');
 }
-
+void JsonWriter::WriteInteger(uint32_t value) {
+  BeginValue();
+  
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%"PRIu32, value);
+  stream_->Write(buffer, strlen(buffer));
+}
 void JsonWriter::WriteInteger(int value) {
   BeginValue();
   

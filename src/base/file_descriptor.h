@@ -1,4 +1,7 @@
 #pragma once
+#include <cctype>
+
+#include <stdlib.h>
 
 namespace cheaproute {
 

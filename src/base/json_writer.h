@@ -30,6 +30,7 @@ public:
   void WriteString(const char* str);
   
   void WriteInteger(int value);
+  void WriteInteger(uint32_t value);
   void WriteInteger(int64_t value);
   void WriteBoolean(bool value);
   void WriteNull();
