@@ -12,6 +12,6 @@ add_test(cheaproute-net-tests cheaproute-net-tests)
 
 target_link_libraries(cheaproute-net-tests 
                       cheaproute-net
-                      cheaproute-base
                       cheaproute-test-util
+                      cheaproute-base
                       gtest_main)

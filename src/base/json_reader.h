@@ -22,6 +22,8 @@ enum JsonToken {
   JSON_Null
 };
 
+const char* GetJsonTokenName(JsonToken token);
+
 enum JsonError {
   JsonError_None,
   JsonError_InvalidUnicodeEscapeSequence,

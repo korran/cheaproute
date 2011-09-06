@@ -19,7 +19,7 @@ add_subdirectory(${CMAKE_BINARY_DIR}/gtest-1.6.0)
 include_directories(${CMAKE_BINARY_DIR}/gtest-1.6.0/include
 )
 
-add_definitions(-Wall -Wstrict-aliasing=2 -Wconversion -Wredundant-decls -Werror 
+add_definitions(-Wall -Wstrict-aliasing=2 -Wconversion -Wredundant-decls -Werror -Wclobbered -Wempty-body -Wuninitialized
                 -D__STDC_FORMAT_MACROS
                 -D__STDC_LIMIT_MACROS)
 enable_testing()

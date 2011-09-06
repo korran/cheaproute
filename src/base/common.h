@@ -71,6 +71,8 @@ namespace cheaproute
     void Printf(const char* format_string, ...)
         __attribute__ ((format (printf, 2, 3)));
     
+    void VPrintf(const char* format_string, va_list argp);
+        
     const string& str() const { return str_; }
     void Append(const char* data, size_t len) {
       str_.append(data, len);
@@ -79,6 +81,11 @@ namespace cheaproute
     string str_;
     scoped_ptr<StringPrinterInternals> internals_;
   };
+  
+  string StrPrintf(const char* format_string, ...)
+      __attribute__ ((format (printf, 1, 2)));
+      
+  string VStrPrintf(const char* format_string, va_list argp);
   
   // This class is used to indicate that we are
   // transferring ownership of an object
@@ -113,6 +120,8 @@ namespace cheaproute
   size_t ArrayLength(T (&x)[N]) { 
     return N;
   }
+  
+  void AppendVectorU8(vector<uint8_t>* destination, const void* data, size_t len);
   
   extern const char kHexChars[];
   extern const int8_t kHexValues[];

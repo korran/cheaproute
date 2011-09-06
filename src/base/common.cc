@@ -70,6 +70,31 @@ void StringPrinter::Printf(const char* format_string, ...) {
   va_end (args);
   fflush(internals_->file);
 }
+void StringPrinter::VPrintf(const char* format_string, va_list args) {
+  
+  vfprintf (internals_->file, format_string, args);
+  fflush(internals_->file);
+}
+
+string StrPrintf(const char* format_string, ...) {
+  StringPrinter str_printer;
+  va_list args;
+  va_start(args, format_string);
+  str_printer.VPrintf(format_string, args);
+  va_end(args);
+  return str_printer.str();
+}
+string VStrPrintf(const char* format_string, va_list args) {
+  StringPrinter str_printer;
+  str_printer.VPrintf(format_string, args);
+  return str_printer.str();
+}
+
+void AppendVectorU8(vector<uint8_t>* destination, const void* data, size_t len) {
+  size_t old_size = destination->size();
+  destination->resize(old_size + len);
+  memcpy(&(*destination)[old_size], data, len);
+}
 
 const int8_t kHexValues[] = { 
   -1, -1, -1, -1, -1, -1, -1, -1,   -1, -1, -1, -1, -1, -1, -1, -1,

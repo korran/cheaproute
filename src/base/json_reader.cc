@@ -6,6 +6,19 @@
 #include <stdlib.h>
 
 namespace cheaproute {
+  
+  
+const char* kJsonTokenNames[] = {
+  "None", "StartArray", "EndArray", "StartObject", "EndObject",
+  "PropertyName", "String", "Integer", "Float", "Boolean", "Null"
+};
+
+const char* GetJsonTokenName(JsonToken token) {
+  if (token >= 0 && token < ArrayLength(kJsonTokenNames))
+    return kJsonTokenNames[token];
+  return "Unknown";
+}
+
 // It might be better to use glibc's iconv functions
 // for this, but they seem a bit too heavyweight for such
 // a simple operation
@@ -372,5 +385,6 @@ bool JsonReader::Next() {
     
   return false;
 }
+
 
 }

@@ -6,6 +6,12 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
+#include <base/json_reader.h>
+#include <arpa/inet.h>
+
+#include <stdarg.h>
+#include <inttypes.h>
+#include <limits>
 
 namespace cheaproute {
 
@@ -48,6 +54,20 @@ const char* kProtocolNames[256] = {
   NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
 };
 
+const int kTcpFlagFin = (1 << 0);
+const int kTcpFlagSyn = (1 << 1);
+const int kTcpFlagRst = (1 << 2);
+const int kTcpFlagPsh = (1 << 3);
+const int kTcpFlagAck = (1 << 4);
+const int kTcpFlagUrg = (1 << 5);
+const int kTcpFlagEce = (1 << 6);
+const int kTcpFlagCwr = (1 << 7);
+const int kTcpFlagNs = (1 << 8);
+
+const char* kTcpFlags[] = {
+  "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR", "NS"
+};
+
 const char* kIcmpTypeNames[32] = {
   "echoReply", NULL, "destinationUnreachable", "sourceQuench", 
   "redirectMessage", NULL, NULL, NULL,
@@ -78,6 +98,78 @@ const char* kIcmpBadIpHeaderCodeNames[] = {
   "pointerIndicatesTheError", "missingARequiredOption",
   "badLength"
 };
+
+
+static const unordered_map<string, int>* CreateIpFlagLookupTable() {
+  unordered_map<string, int>* result = new unordered_map<string, int>();
+  (*result)["DF"] = IP_DF;
+  (*result)["MF"] = IP_MF;
+  return result;
+}
+static const unordered_map<string, int>* GetIpFlagLookupTable() {
+  const static unordered_map<string, int>* result = CreateIpFlagLookupTable();
+  return result;
+}
+
+template<typename T>
+static const unordered_map<string, T>* CreateLookupTable(const char** array, size_t array_size) {
+  unordered_map<string, T>* result = new unordered_map<string, T>();
+  
+  for (size_t i = 0; i < array_size; i++) {
+    const char* value = array[i];
+    if (value) {
+      (*result)[string(value)] = static_cast<T>(i);
+    }
+  }
+  return result;
+}
+template<typename T>
+static const unordered_map<string, T>* CreateFlagLookupTable(const char** array, size_t array_size) {
+  unordered_map<string, T>* result = new unordered_map<string, T>();
+  
+  for (size_t i = 0; i < array_size; i++) {
+    const char* value = array[i];
+    if (value) {
+      (*result)[string(value)] = 1 << static_cast<T>(i);
+    }
+  }
+  return result;
+}
+
+
+static const unordered_map<string, int>* GetTcpFlagLookupTable() {
+  const static unordered_map<string, int>* result = 
+    CreateFlagLookupTable<int>(kTcpFlags, ArrayLength(kTcpFlags));
+  return result;
+}
+static const unordered_map<string, uint8_t>* GetIcmpTypeLookupTable() {
+  const static unordered_map<string, uint8_t>* result = 
+      CreateLookupTable<uint8_t>(kIcmpTypeNames, ArrayLength(kIcmpTypeNames));
+  return result;
+}
+static const unordered_map<string, uint8_t>* GetIcmpDestinationUnreacheableCodeNameLookupTable() {
+  const static unordered_map<string, uint8_t>* result = 
+      CreateLookupTable<uint8_t>(kIcmpDestinationUnreachableCodeNames, 
+                             ArrayLength(kIcmpDestinationUnreachableCodeNames));
+  return result;
+}
+static const unordered_map<string, uint8_t>* GetIcmpRedirectMessageCodeNamesLookupTable() {
+  const static unordered_map<string, uint8_t>* result = 
+      CreateLookupTable<uint8_t>(kIcmpRedirectMessageCodeNames, 
+                             ArrayLength(kIcmpRedirectMessageCodeNames));
+  return result;
+}
+static const unordered_map<string, uint8_t>* GetIcmpBadIpHeaderCodeNames() {
+  const static unordered_map<string, uint8_t>* result = 
+      CreateLookupTable<uint8_t>(kIcmpBadIpHeaderCodeNames, 
+                             ArrayLength(kIcmpBadIpHeaderCodeNames));
+  return result;
+}
+static const unordered_map<string, uint8_t>* GetProtocolNameLookupTable() {
+  const static unordered_map<string, uint8_t>* result = 
+      CreateLookupTable<uint8_t>(kProtocolNames, ArrayLength(kProtocolNames));
+  return result;
+}
 
 static void WriteIpFlags(JsonWriter* writer, int flags) {
   writer->BeginArray();
@@ -265,10 +357,10 @@ static size_t WriteTcpHeader(JsonWriter* writer, const tcphdr* tcp_header, size_
   
   writer->WritePropertyName("seqNumber");
   writer->BeginPack();
-  writer->WriteInteger(static_cast<int64_t>(htonl(tcp_header->seq)));
+  writer->WriteInteger(htonl(tcp_header->seq));
   if (tcp_header->ack) {
     writer->WritePropertyName("ackNumber");
-    writer->WriteInteger(static_cast<int64_t>(htonl(tcp_header->ack_seq)));
+    writer->WriteInteger(htonl(tcp_header->ack_seq));
   }
   writer->EndPack();
   
@@ -288,7 +380,8 @@ static size_t WriteTcpHeader(JsonWriter* writer, const tcphdr* tcp_header, size_
   size_t total_header_size = tcp_header->doff * 4;
   const uint8_t* options = 
     reinterpret_cast<const uint8_t*>(tcp_header) + sizeof(tcphdr);
-  size_t options_size = std::min(size_limit - sizeof(tcphdr), total_header_size);
+  size_t options_size = std::min(size_limit - sizeof(tcphdr), 
+                                 std::max(static_cast<size_t>(20), total_header_size) - 20);
   
   if (options_size > 0) {
     writer->WritePropertyName("options");
@@ -313,7 +406,7 @@ static size_t WriteTcpHeader(JsonWriter* writer, const tcphdr* tcp_header, size_
         break;
       
       uint8_t option_size = p[1];
-      if (p + option_size >= options_end)
+      if (p + option_size > options_end)
         break;
       
       switch (option_type) {
@@ -461,6 +554,503 @@ void SerializePacket(JsonWriter* writer, const void* packet, size_t size) {
     }
   }
   writer->EndObject();
+}
+
+static bool Error(string* out_error_string, const char* format_string, ...)
+__attribute__ ((format (printf, 2, 3)));
+
+static bool Error(string* out_error_string, const char* format_string, ...) {
+  if (out_error_string) {
+    va_list args;
+    va_start(args, format_string);
+    *out_error_string = VStrPrintf(format_string, args);
+    va_end(args);
+  }
+  return false;
+}
+
+static bool PrefixError(string* out_error_string, const char* prefix) {
+  if (out_error_string) {
+    *out_error_string = string(prefix) + ": " + *out_error_string;
+  }
+  return false;
+}
+
+static bool ExpectNextJsonToken(JsonReader* reader, string* out_err) {
+  if (!reader->Next()) 
+    return Error(out_err, "Unexpected end of file");
+  return true;
+}
+
+static bool ExpectNextJsonToken(JsonReader* reader, JsonToken expected_token, 
+                                string* out_err) {
+  if (!reader->Next()) 
+    return Error(out_err, "Unexpected end of file");
+  
+  if (reader->token_type() != expected_token) {
+    return Error(out_err, "Unexpected token '%s', expected token '%s'",
+                 GetJsonTokenName(reader->token_type()),
+                 GetJsonTokenName(expected_token));
+  }
+  return true;
+}
+
+static bool ExpectCurrentPropertyName(JsonReader* reader, const char* property_name,
+                               string* out_err) {
+  if (reader->token_type() != JSON_PropertyName)
+    return Error(out_err, "expected property named %s, was token %s",
+                 property_name, GetJsonTokenName(reader->token_type()));
+  
+  if (reader->str_value() != string(property_name)) 
+    return Error(out_err, "expected property named '%s', instead it "
+                 "was named '%s'", property_name, reader->str_value().c_str());
+  
+  return true;
+}
+
+static bool ExpectNextPropertyName(JsonReader* reader, const char* property_name,
+                               string* out_err) {
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  
+  return ExpectCurrentPropertyName(reader, property_name, out_err);
+}
+
+template<typename T>
+bool ExpectNextEnumProperty(JsonReader* reader, const char* property_name,
+                               const unordered_map<string, T>* lookup_table,
+                               T* out_result, string* out_err) {
+  if (!ExpectNextPropertyName(reader, property_name, out_err))
+    return false;
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  
+  typename unordered_map<string, T>::const_iterator i = 
+      lookup_table->find(reader->str_value());
+  
+  if (i == lookup_table->end()) {
+    return Error(out_err, "For property '%s', unknown value '%s'", 
+                 property_name, reader->str_value().c_str());
+  }
+  *out_result = i->second;
+  return true;
+}
+
+static bool ExpectCurrentInt64Property(JsonReader* reader, const char* property_name, 
+                               int64_t min_value, int64_t max_value, int64_t* out_result, 
+                               string* out_err) {
+  if (!ExpectCurrentPropertyName(reader, property_name, out_err))
+    return false;
+  
+  if (!ExpectNextJsonToken(reader, JSON_Integer, out_err)) {
+    if (reader->error_code() == JsonError_OutOfRange) {
+      return Error(out_err, "For property %s, integer out of range", property_name);
+    }
+    return false;
+  }
+  int64_t value = reader->int_value();
+  
+  if (value < min_value || value > max_value) {
+    return Error(out_err,  "For property '%s', expected integer "
+                 "between %"PRId64" and %"PRId64"; was %"PRId64, 
+                 property_name, min_value, max_value, value);
+  }
+  *out_result = value;
+  return true;
+}
+
+template<typename T>
+T ToBigEndian(T value) {
+  return value;
+}
+template<>
+uint16_t ToBigEndian(uint16_t value) {
+  return htons(value);
+}
+template<>
+uint32_t ToBigEndian(uint32_t value) {
+  return htonl(value);
+}
+
+template<typename T>
+bool ExpectCurrentProperty(JsonReader* reader, const char* property_name, 
+                               T min_value, T max_value, T* out_result, 
+                               string* out_error_string) {
+  int64_t result;
+  if (!ExpectCurrentInt64Property(reader, property_name, min_value, max_value, &result,
+                         out_error_string)) {
+    return false;
+  }
+  *out_result = ToBigEndian(static_cast<T>(result));
+  return true;
+}
+
+template<typename T>
+bool ExpectNextProperty(JsonReader* reader, const char* property_name, 
+                               T min_value, T max_value, T* out_result, 
+                               string* out_err) {
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  bool result =  ExpectCurrentProperty(reader, property_name, min_value, max_value, 
+                        out_result, out_err);
+  return result;
+}
+
+template<typename T>
+bool ExpectCurrentProperty(JsonReader* reader, const char* property_name, 
+                               T* out_result, string* out_err) {
+  
+  return ExpectCurrentProperty(reader, property_name, std::numeric_limits<T>::min(),
+                        std::numeric_limits<T>::max(), out_result, 
+                        out_err);
+}
+
+template<typename T>
+bool ExpectNextProperty(JsonReader* reader, const char* property_name, 
+                               T* out_result, string* out_err) {
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  return ExpectCurrentProperty(reader, property_name, out_result, out_err);
+}
+
+
+static bool ExpectIp4Value(JsonReader* reader, uint32_t* out_result, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_String, out_err))
+    return false;
+  
+  struct in_addr sock_addr;
+  const string& str_value = reader->str_value();
+  if (inet_pton(AF_INET, str_value.c_str(), &sock_addr) != 1) {
+    return Error(out_err, "Unable to parse IPv4 address '%s'", str_value.c_str());
+  }
+  *out_result = sock_addr.s_addr;
+  return true;
+}
+
+bool DeserializeFlags(JsonReader* reader, const unordered_map<string, int>* lookup_table,
+                      int* out_result, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_StartArray, out_err))
+    return false;
+  int result = 0;
+  while (true) {
+    if (!ExpectNextJsonToken(reader, out_err))
+      return false;
+    if (reader->token_type() == JSON_EndArray) 
+      break;
+    
+    if (reader ->token_type() != JSON_String)
+      return Error(out_err, "Unexpected token while deserializing flags");
+    
+    unordered_map<string, int>::const_iterator i = 
+        lookup_table->find(reader->str_value());
+        
+    if (i == lookup_table->end()) 
+      return Error(out_err, "Unknown flag %s", reader->str_value().c_str());
+    
+    result |= i->second;
+  }
+  *out_result = result;
+  return true;
+}
+
+static bool DeserializeIp4Header(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+    return false;
+    
+  iphdr ip_header;
+  memset(&ip_header, 0, sizeof(ip_header));
+  
+  uint8_t version;
+  if (!ExpectNextProperty<uint8_t>(reader, "version", 4, 4, &version, out_err))
+    return false;
+    
+  ip_header.version = version & 0x0f;
+  ip_header.ihl = 5;
+  
+  if (!ExpectNextProperty<uint8_t>(reader, "tos", 0, 255, &ip_header.tos, out_err))
+    return false;
+  if (!ExpectNextProperty<uint16_t>(reader, "id", &ip_header.id, out_err))
+    return false;
+  
+  if (!ExpectNextPropertyName(reader, "flags", out_err))
+    return false;
+  
+  int flags;
+  if (!DeserializeFlags(reader, GetIpFlagLookupTable(), &flags, out_err))
+    return PrefixError(out_err, "While reading property 'flags' in ip header");
+  
+  if (!ExpectNextProperty<uint16_t>(reader, "fragmentOffset", 0, 8191, 
+                                &ip_header.frag_off, out_err)) {
+    return false;
+  }
+  
+  ip_header.frag_off |= htons(static_cast<uint16_t>(flags));
+  
+  if (!ExpectNextProperty<uint8_t>(reader, "ttl", &ip_header.ttl, out_err))
+    return false;
+  
+  if (!ExpectNextEnumProperty(reader, "protocol", GetProtocolNameLookupTable(), 
+                          &ip_header.protocol,  out_err)) {
+    return false;
+  }
+  
+  if (!ExpectNextPropertyName(reader, "source", out_err))
+    return false;
+  if (!ExpectIp4Value(reader, &ip_header.saddr, out_err))
+    return PrefixError(out_err, "In property 'source'");
+  
+  if (!ExpectNextPropertyName(reader, "destination", out_err))
+    return false;
+  if (!ExpectIp4Value(reader, &ip_header.daddr, out_err))
+    return PrefixError(out_err, "In property 'destination'");
+  
+  // TODO: Deserialize IP options
+  
+  if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+    return PrefixError(out_err, "While reading IP header");
+  
+  AppendVectorU8(dest_buffer, &ip_header, sizeof(ip_header));
+  return true;
+}
+
+static bool DeserializeTcpHeader(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+    return false;
+  
+  tcphdr tcp_header;
+  memset(&tcp_header, 0, sizeof(tcp_header));
+  
+  if (!ExpectNextProperty<uint16_t>(reader, "sourcePort", &tcp_header.source, out_err))
+    return false;
+  if (!ExpectNextProperty<uint16_t>(reader, "destPort", &tcp_header.dest, out_err))
+    return false;
+  if (!ExpectNextProperty<uint32_t>(reader, "seqNumber", &tcp_header.seq, out_err))
+    return false;
+  
+  if (!ExpectNextJsonToken(reader, JSON_PropertyName, out_err))
+    return false;
+  
+  if (reader->str_value() == "ackNumber") {
+    if (!ExpectCurrentProperty<uint32_t>(reader, "ackNumber", &tcp_header.ack_seq, out_err))
+      return false;
+    if (!ExpectNextJsonToken(reader, JSON_PropertyName, out_err))
+    return false;
+  }
+  
+  tcp_header.doff = 5;
+  
+  if (!ExpectCurrentPropertyName(reader, "flags", out_err))
+    return false;
+  
+  int tcp_flags;
+  if (!DeserializeFlags(reader, GetTcpFlagLookupTable(), &tcp_flags, out_err))
+    return false;
+  tcp_header.fin = static_cast<bool>(tcp_flags & kTcpFlagFin);
+  tcp_header.syn = static_cast<bool>(tcp_flags & kTcpFlagSyn);
+  tcp_header.rst = static_cast<bool>(tcp_flags & kTcpFlagRst);
+  tcp_header.psh = static_cast<bool>(tcp_flags & kTcpFlagPsh);
+  tcp_header.ack = static_cast<bool>(tcp_flags & kTcpFlagAck);
+  tcp_header.urg = static_cast<bool>(tcp_flags & kTcpFlagUrg);
+  
+  if (!ExpectNextProperty<uint16_t>(reader, "windowSize", &tcp_header.window, out_err))
+    return false;
+  
+  if (tcp_header.urg) {
+    if (!ExpectNextProperty<uint16_t>(reader, "urgentPointer", &tcp_header.urg_ptr, out_err))
+      return false;
+  }
+  
+  // TODO: Deserialize TCP options
+  if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+    return false;
+  
+  AppendVectorU8(dest_buffer, &tcp_header, sizeof(tcp_header));
+  return true;
+}
+
+static bool DeserializeUdpHeader(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+    return false;
+  
+  udphdr udp_header;
+  memset(&udp_header, 0, sizeof(udp_header));
+  
+  if (!ExpectNextProperty<uint16_t>(reader, "sourcePort", &udp_header.source, out_err))
+    return false;
+  if (!ExpectNextProperty<uint16_t>(reader, "destPort", &udp_header.dest, out_err))
+    return false;
+  
+  if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+    return false;
+  
+  AppendVectorU8(dest_buffer, &udp_header, sizeof(udp_header));
+  return true;
+}
+
+static bool DeserializeIcmpHeader(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+    return false;
+  
+  icmphdr icmp_header;
+  memset(&icmp_header, 0, sizeof(icmp_header));
+  
+  if (!ExpectNextEnumProperty(reader, "type", GetIcmpTypeLookupTable(), 
+                          &icmp_header.type, out_err)) {
+    return false;
+  }
+  
+  switch (icmp_header.type) {
+    case ICMP_DEST_UNREACH:
+      if (!ExpectNextEnumProperty(reader, "code", GetIcmpDestinationUnreacheableCodeNameLookupTable(),
+                         &icmp_header.code, out_err)) {
+        return false;
+      }
+      break;
+      
+    case ICMP_REDIRECT:
+      if (!ExpectNextEnumProperty(reader, "code", GetIcmpRedirectMessageCodeNamesLookupTable(),
+                         &icmp_header.code, out_err)) {
+        return false;
+      }
+      break;
+      
+    case ICMP_PARAMETERPROB:
+      if (!ExpectNextEnumProperty(reader, "code", GetIcmpBadIpHeaderCodeNames(),
+                         &icmp_header.code, out_err)) {
+        return false;
+      }
+      break;
+      
+    default:
+      if (!ExpectNextProperty<uint8_t>(reader, "code", &icmp_header.code, out_err))
+        return false;
+      break;
+  }
+  
+    switch (icmp_header.type) {
+    case ICMP_ECHO: 
+    case ICMP_ECHOREPLY:
+    case ICMP_TIMESTAMP:
+    case ICMP_TIMESTAMPREPLY:
+    case ICMP_ADDRESS:
+    case ICMP_ADDRESSREPLY:
+      if (!ExpectNextProperty<uint16_t>(reader, "identifier", 
+              &icmp_header.un.echo.id, out_err)) {
+        return false;
+      }
+      if (!ExpectNextProperty<uint16_t>(reader, "sequenceNumber", 
+              &icmp_header.un.echo.sequence, out_err)) {
+        return false;
+      }
+      break;
+      
+    case ICMP_DEST_UNREACH:
+      if (!ExpectNextProperty<uint16_t>(reader, "nextHopMtu", 
+            &icmp_header.un.frag.mtu, out_err)) {
+        return false;
+      }
+      break;
+      
+    case ICMP_REDIRECT:
+      if (!ExpectNextPropertyName(reader, "gateway", out_err))
+        return false;
+      if (!ExpectIp4Value(reader, &icmp_header.un.gateway, out_err)) {
+        return false;
+      }
+      break;
+  }
+  
+  if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+    return false;
+  
+  AppendVectorU8(dest_buffer, &icmp_header, sizeof(icmp_header));
+  
+  return true;
+}
+
+bool DeserializePacket(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
+  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+    return false;
+  if (!ExpectNextPropertyName(reader, "ip", out_err))
+    return false;
+
+  if (!DeserializeIp4Header(reader, dest_buffer, out_err))
+    return false;
+  
+  const iphdr* ip_header = reinterpret_cast<const iphdr*>(&(*dest_buffer)[0]);
+  
+  switch (ip_header->protocol) {
+    case kProtocolTcp:
+      if (!ExpectNextPropertyName(reader, "tcp", out_err))
+        return false;
+      if (!DeserializeTcpHeader(reader, dest_buffer, out_err))
+        return false;
+      break;
+      
+    case kProtocolUdp:
+      if (!ExpectNextPropertyName(reader, "udp", out_err))
+        return false;
+      if (!DeserializeUdpHeader(reader, dest_buffer, out_err))
+        return false;
+      break;
+      
+    case kProtocolIcmp:
+      if (!ExpectNextPropertyName(reader, "icmp", out_err))
+        return false;
+      if (!DeserializeIcmpHeader(reader, dest_buffer, out_err))
+        return false;
+      break;
+  }
+  
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  
+  if (reader->token_type() == JSON_EndObject)
+    return true;
+  
+  if (!ExpectCurrentPropertyName(reader, "data", out_err))
+    return false;
+  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+    return false;
+  if (!ExpectNextPropertyName(reader, "type", out_err))
+    return false;
+  if (!ExpectNextJsonToken(reader, JSON_String, out_err))
+    return false;
+  
+  string data_type = reader->str_value();
+  if (data_type != "text" && data_type != "hex") {
+    return Error(out_err, "data type must be 'text' or 'hex', was '%s'", 
+                 data_type.c_str());
+  }
+  
+  if (!ExpectNextPropertyName(reader, "data", out_err))
+    return false;
+  if (!ExpectNextJsonToken(reader, JSON_StartArray, out_err))
+    return false;
+  
+  string data_str;
+  while (true) {
+    if (!ExpectNextJsonToken(reader, out_err))
+      return false;
+    
+    if (reader->token_type() == JSON_EndArray)
+      break;
+    
+    if (reader->token_type() != JSON_String) {
+      return Error(out_err, "Unexpected token '%s', expected 'String'", 
+                   GetJsonTokenName(reader->token_type()));
+    }
+    
+    data_str.append(reader->str_value());
+  }
+  
+  if (data_type == "text") {
+    AppendVectorU8(dest_buffer, data_str.c_str(), data_str.size());
+  } else if (data_type == "hex") {
+    ParseHex(data_str.c_str(), dest_buffer);
+  }
+  
+  return true;
 }
 
 }

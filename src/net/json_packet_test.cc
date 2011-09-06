@@ -1,8 +1,11 @@
 
 #include "net/json_packet.h"
 #include "gtest/gtest.h"
-#include "arpa/inet.h"
+
+#include "base/json_reader.h"
 #include <test_util/json.h>
+
+#include <arpa/inet.h>
 
 namespace cheaproute {
   
@@ -39,7 +42,8 @@ TEST(JsonPacketTest, SerializeTcpSyn) {
                           "\"flags\":[\"SYN\"],"
                           "\"windowSize\":14600,"
                           "\"options\":[[\"maxSegmentSize\",1460],\"sackPermitted\","
-                                       "[\"timestamp\",5278216,0],\"NOP\""
+                                       "[\"timestamp\",5278216,0],\"NOP\","
+                                       "[\"windowScale\",7]"
                           "]"
                         "}"
                       "}");  
@@ -152,4 +156,109 @@ TEST(JsonPacketTest, SerializeIcmpPacket) {
                         "}"
                       "}");
 }
+
+void TestJsonRoundTrip(const char* json) {
+  JsonReader reader(CreateBufferedInputStream(json));
+  
+  vector<uint8_t> packet_data;
+  string error_string;
+  if (!DeserializePacket(&reader, &packet_data, &error_string))
+    FAIL() << "Packet serialization failed with message: " << error_string;
+  
+  JsonWriterFixture fixture;
+  SerializePacket(fixture.writer(), &packet_data[0], packet_data.size());
+  fixture.AssertContents(json);
+}
+
+TEST(JsonPacketTest, DeserializeJsonTcpPacket) {
+  TestJsonRoundTrip(
+    "{"
+      "\"ip\":{"
+        "\"version\":4,"
+        "\"tos\":0,"
+        "\"id\":1642,"
+        "\"flags\":[\"DF\"],"
+        "\"fragmentOffset\":0,"
+        "\"ttl\":64,"
+        "\"protocol\":\"TCP\","
+        "\"source\":\"192.168.1.125\","
+        "\"destination\":\"72.14.204.147\""
+      "},"
+      "\"tcp\":{"
+        "\"sourcePort\":39570,"
+        "\"destPort\":80,"
+        "\"seqNumber\":1628108555,"
+        "\"ackNumber\":2245680723,"
+        "\"flags\":[\"ACK\",\"PSH\"],"
+        "\"windowSize\":115"
+      "},"
+      "\"data\":{\"type\":\"text\",\"data\":["
+          "\"GET / HTTP/1.1\\r\\n\","
+          "\"Accept: */*\\r\\n\","
+          "\"Host: www.google.com\\r\\n\","
+          "\"Connection: Keep-Alive\\r\\n\","
+          "\"\\r\\n\""
+        "]"
+      "}"
+    "}");
+}
+
+TEST(JsonPacketTest, DeserializeJsonUdpPacket) {
+  TestJsonRoundTrip(
+    "{"
+      "\"ip\":{"
+        "\"version\":4,"
+        "\"tos\":0,"
+        "\"id\":54260,"
+        "\"flags\":[],"
+        "\"fragmentOffset\":0,"
+        "\"ttl\":64,"
+        "\"protocol\":\"UDP\","
+        "\"source\":\"192.168.1.132\","
+        "\"destination\":\"8.8.8.8\""
+      "},"
+      "\"udp\":{"
+        "\"sourcePort\":51680,"
+        "\"destPort\":53"
+      "},"
+      "\"data\":{\"type\":\"hex\",\"data\":["
+          "\"45 35 01 00 00 01 00 00  00 00 00 00 03 77 77 77\","
+          "\"06 67 6f 6f 67 6c 65 03  63 6f 6d 00 00 01 00 01\""
+        "]"
+      "}"
+    "}");
+}
+
+TEST(JsonPacketTest, DeserializeJsonIcmpPacket) {
+  TestJsonRoundTrip(
+    "{"
+      "\"ip\":{"
+        "\"version\":4,"
+        "\"tos\":0,"
+        "\"id\":0,"
+        "\"flags\":[\"DF\"],"
+        "\"fragmentOffset\":0,"
+        "\"ttl\":64,"
+        "\"protocol\":\"ICMP\","
+        "\"source\":\"192.168.1.132\","
+        "\"destination\":\"8.8.8.8\""
+      "},"
+      "\"icmp\":{"
+        "\"type\":\"echoRequest\","
+        "\"code\":0,"
+        "\"identifier\":17993,"
+        "\"sequenceNumber\":1"
+      "},"
+      "\"data\":{\"type\":\"hex\",\"data\":["
+          "\"b0 44 65 4e 00 00 00 00  6c 96 0a 00 00 00 00 00\","
+          "\"10 11 12 13 14 15 16 17  18 19 1a 1b 1c 1d 1e 1f\","
+          "\"20 21 22 23 24 25 26 27  28 29 2a 2b 2c 2d 2e 2f\","
+          "\"30 31 32 33 34 35 36 37\""
+        "]"
+      "}"
+    "}");
+}
+
+// TODO: Need test cases to exercise all the crazy branches in the parsing code
+
 }
