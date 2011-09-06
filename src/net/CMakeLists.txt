@@ -2,7 +2,8 @@
 add_library(cheaproute-net
   ip_address.cc
   json_packet.cc
-  netlink.cc)
+  netlink.cc
+  tun_interface.cc)
 
 add_executable(cheaproute-net-tests
                json_packet_test.cc
