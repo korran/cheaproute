@@ -68,6 +68,11 @@ const char* kTcpFlags[] = {
   "FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR", "NS"
 };
 
+const char* kTcpOptions[] = {
+  "EOL", "NOP", "maxSegmentSize", "windowScale", "sackPermitted", 
+  "selectedAck", NULL, NULL, "timestamp"
+};
+
 const char* kIcmpTypeNames[32] = {
   "echoReply", NULL, "destinationUnreachable", "sourceQuench", 
   "redirectMessage", NULL, NULL, NULL,
@@ -140,6 +145,11 @@ static const unordered_map<string, T>* CreateFlagLookupTable(const char** array,
 static const unordered_map<string, int>* GetTcpFlagLookupTable() {
   const static unordered_map<string, int>* result = 
     CreateFlagLookupTable<int>(kTcpFlags, ArrayLength(kTcpFlags));
+  return result;
+}
+static const unordered_map<string, uint8_t>* GetTcpOptionTable() {
+  const static unordered_map<string, uint8_t>* result = 
+      CreateLookupTable<uint8_t>(kTcpOptions, ArrayLength(kTcpOptions));
   return result;
 }
 static const unordered_map<string, uint8_t>* GetIcmpTypeLookupTable() {
@@ -394,12 +404,16 @@ static size_t WriteTcpHeader(JsonWriter* writer, const tcphdr* tcp_header, size_
       uint8_t option_type = *p;
       
       if (option_type == TCPOPT_NOP) {
+        writer->BeginArray();
         writer->WriteString("NOP");
+        writer->EndArray();
         p++;
         continue;
       }
       if (option_type == TCPOPT_EOL) {
+        writer->BeginArray();
         writer->WriteString("EOL");
+        writer->EndArray();
         break;
       }
       if (p+1 >= options_end)
@@ -425,15 +439,12 @@ static size_t WriteTcpHeader(JsonWriter* writer, const tcphdr* tcp_header, size_
         case TCPOPT_SACK_PERMITTED:
           if (option_size != TCPOLEN_SACK_PERMITTED)
             break;
-          writer->WriteString("sackPermitted");
-          break;
-          
-        case TCPOPT_SACK:
           writer->BeginArray();
-          writer->WriteString("selectiveAck");
-          SerializeBytesAsHex(writer, &p[2], option_size - 2);
+          writer->WriteString("sackPermitted");
           writer->EndArray();
           break;
+          
+        // TODO: Support TCPOPT_SACK
           
         case TCPOPT_TIMESTAMP:
           if (option_size != TCPOLEN_TIMESTAMP)
@@ -569,9 +580,12 @@ static bool Error(string* out_error_string, const char* format_string, ...) {
   return false;
 }
 
-static bool PrefixError(string* out_error_string, const char* prefix) {
+static bool PrefixError(string* out_error_string, const char* format_string, ...) {
   if (out_error_string) {
-    *out_error_string = string(prefix) + ": " + *out_error_string;
+    va_list args;
+    va_start(args, format_string);
+    *out_error_string = VStrPrintf(format_string, args) + ": " + *out_error_string;
+    va_end(args);
   }
   return false;
 }
@@ -582,17 +596,22 @@ static bool ExpectNextJsonToken(JsonReader* reader, string* out_err) {
   return true;
 }
 
-static bool ExpectNextJsonToken(JsonReader* reader, JsonToken expected_token, 
+static bool ExpectCurrentJsonToken(JsonReader* reader, JsonToken expected_token, 
                                 string* out_err) {
-  if (!reader->Next()) 
-    return Error(out_err, "Unexpected end of file");
-  
   if (reader->token_type() != expected_token) {
     return Error(out_err, "Unexpected token '%s', expected token '%s'",
                  GetJsonTokenName(reader->token_type()),
                  GetJsonTokenName(expected_token));
   }
   return true;
+}
+
+static bool ExpectNextJsonToken(JsonReader* reader, JsonToken expected_token, 
+                                string* out_err) {
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  
+  return ExpectCurrentJsonToken(reader, expected_token, out_err);
 }
 
 static bool ExpectCurrentPropertyName(JsonReader* reader, const char* property_name,
@@ -622,6 +641,18 @@ bool ExpectNextEnumProperty(JsonReader* reader, const char* property_name,
                                T* out_result, string* out_err) {
   if (!ExpectNextPropertyName(reader, property_name, out_err))
     return false;
+  
+  if (!ExpectNextEnumValue(reader, lookup_table, out_result, out_err)) {
+    return PrefixError(out_err, "Error with property '%s'", property_name);
+  }
+  
+  return true;
+}
+
+template<typename T>
+bool ExpectNextEnumValue(JsonReader* reader, 
+                               const unordered_map<string, T>* lookup_table,
+                               T* out_result, string* out_err) {
   if (!ExpectNextJsonToken(reader, out_err))
     return false;
   
@@ -629,31 +660,29 @@ bool ExpectNextEnumProperty(JsonReader* reader, const char* property_name,
       lookup_table->find(reader->str_value());
   
   if (i == lookup_table->end()) {
-    return Error(out_err, "For property '%s', unknown value '%s'", 
-                 property_name, reader->str_value().c_str());
+    return Error(out_err, "unknown value '%s'", 
+                 reader->str_value().c_str());
   }
   *out_result = i->second;
   return true;
 }
 
-static bool ExpectCurrentInt64Property(JsonReader* reader, const char* property_name, 
-                               int64_t min_value, int64_t max_value, int64_t* out_result, 
-                               string* out_err) {
-  if (!ExpectCurrentPropertyName(reader, property_name, out_err))
-    return false;
+static bool ExpectCurrentInt64Value(JsonReader* reader, int64_t min_value, 
+                                       int64_t max_value, int64_t* out_result,
+                                       string* out_err) {
   
-  if (!ExpectNextJsonToken(reader, JSON_Integer, out_err)) {
+  if (!ExpectCurrentJsonToken(reader, JSON_Integer, out_err)) {
     if (reader->error_code() == JsonError_OutOfRange) {
-      return Error(out_err, "For property %s, integer out of range", property_name);
+      return Error(out_err, "integer out of range");
     }
     return false;
   }
   int64_t value = reader->int_value();
   
   if (value < min_value || value > max_value) {
-    return Error(out_err,  "For property '%s', expected integer "
+    return Error(out_err,  "expected integer "
                  "between %"PRId64" and %"PRId64"; was %"PRId64, 
-                 property_name, min_value, max_value, value);
+                 min_value, max_value, value);
   }
   *out_result = value;
   return true;
@@ -673,15 +702,46 @@ uint32_t ToBigEndian(uint32_t value) {
 }
 
 template<typename T>
+bool ExpectCurrentValue(JsonReader* reader, T min_value, T max_value, 
+                        T* out_result, string* out_err) {
+  int64_t result;
+  if (!ExpectCurrentInt64Value(reader, min_value, max_value, &result, out_err))
+    return false;
+  *out_result = ToBigEndian(static_cast<T>(result));
+  return true;
+}
+
+template<typename T>
+bool ExpectCurrentValue(JsonReader* reader, T* out_result, string* out_err) {
+  return ExpectCurrentValue(reader, std::numeric_limits<T>::min(),
+                        std::numeric_limits<T>::max(), out_result, out_err);
+}
+
+template<typename T>
+bool ExpectNextValue(JsonReader* reader, T min_value, T max_value, 
+                     T* out_result, string* out_err) {
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  return ExpectCurrentValue(reader, min_value, max_value, out_result, out_err);
+}
+
+template<typename T>
+bool ExpectNextValue(JsonReader* reader, T* out_result, string* out_err) {
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  return ExpectCurrentValue(reader, out_result, out_err);
+}
+
+template<typename T>
 bool ExpectCurrentProperty(JsonReader* reader, const char* property_name, 
                                T min_value, T max_value, T* out_result, 
-                               string* out_error_string) {
-  int64_t result;
-  if (!ExpectCurrentInt64Property(reader, property_name, min_value, max_value, &result,
-                         out_error_string)) {
+                               string* out_err) {
+  if (!ExpectCurrentPropertyName(reader, property_name, out_err))
     return false;
-  }
-  *out_result = ToBigEndian(static_cast<T>(result));
+  
+  if (!ExpectNextValue(reader, min_value, max_value, out_result, out_err)) 
+    return PrefixError(out_err, "Error parsing property %s", property_name);
+  
   return true;
 }
 
@@ -691,18 +751,20 @@ bool ExpectNextProperty(JsonReader* reader, const char* property_name,
                                string* out_err) {
   if (!ExpectNextJsonToken(reader, out_err))
     return false;
-  bool result =  ExpectCurrentProperty(reader, property_name, min_value, max_value, 
-                        out_result, out_err);
-  return result;
+  
+  return ExpectCurrentProperty(reader, property_name, min_value, max_value, 
+                               out_result, out_err);
 }
 
 template<typename T>
 bool ExpectCurrentProperty(JsonReader* reader, const char* property_name, 
                                T* out_result, string* out_err) {
+  if (!ExpectCurrentPropertyName(reader, property_name, out_err))
+    return false;
   
-  return ExpectCurrentProperty(reader, property_name, std::numeric_limits<T>::min(),
-                        std::numeric_limits<T>::max(), out_result, 
-                        out_err);
+  if (!ExpectNextValue(reader, out_result, out_err))
+    return PrefixError(out_err, "Error with property '%s'", property_name);
+  return true;
 }
 
 template<typename T>
@@ -766,7 +828,6 @@ static bool DeserializeIp4Header(JsonReader* reader, vector<uint8_t>* dest_buffe
     
   ip_header.version = version & 0x0f;
   ip_header.ihl = 5;
-  
   if (!ExpectNextProperty<uint8_t>(reader, "tos", 0, 255, &ip_header.tos, out_err))
     return false;
   if (!ExpectNextProperty<uint16_t>(reader, "id", &ip_header.id, out_err))
@@ -813,6 +874,76 @@ static bool DeserializeIp4Header(JsonReader* reader, vector<uint8_t>* dest_buffe
   return true;
 }
 
+static bool DeserializeTcpHeaderOptions(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
+  if (reader->token_type() == JSON_EndObject)
+    return true;
+
+  if (!ExpectCurrentPropertyName(reader, "options", out_err))
+    return false;
+  if (!ExpectNextJsonToken(reader, JSON_StartArray, out_err))
+    return false;
+  if (!ExpectNextJsonToken(reader, out_err))
+    return false;
+  
+  while (reader->token_type() != JSON_EndArray) {
+    if (!ExpectCurrentJsonToken(reader, JSON_StartArray, out_err))
+      return false;
+    
+    uint8_t option_type;
+    if (!ExpectNextEnumValue(reader, GetTcpOptionTable(), &option_type, out_err))
+      return false;
+    
+    switch (option_type) {
+      case TCPOPT_EOL:
+      case TCPOPT_NOP:
+        dest_buffer->push_back(option_type);
+        break;
+        
+      case TCPOPT_SACK_PERMITTED:
+        dest_buffer->push_back(option_type);
+        dest_buffer->push_back(TCPOLEN_SACK_PERMITTED);
+        break;
+        
+      case TCPOPT_WINDOW:
+      case TCPOPT_MAXSEG: {
+        dest_buffer->push_back(option_type);
+        dest_buffer->push_back(4);
+        uint16_t value;
+        if (!ExpectNextValue<uint16_t>(reader, &value, out_err))
+          return false;
+        AppendVectorU8(dest_buffer, &value, sizeof(value));
+        break;
+      }
+      
+      case TCPOPT_SACK: {
+        return Error(out_err, "Selective acknowledgements are not supported");
+      }
+      
+      case TCPOPT_TIMESTAMP: {
+        dest_buffer->push_back(option_type);
+        dest_buffer->push_back(TCPOLEN_TIMESTAMP);
+        uint32_t value1;
+        uint32_t value2;
+        if (!ExpectNextValue<uint32_t>(reader, &value1, out_err))
+          return false;
+        if (!ExpectNextValue<uint32_t>(reader, &value2, out_err))
+          return false;
+        AppendVectorU8(dest_buffer, &value1, sizeof(value1));
+        AppendVectorU8(dest_buffer, &value2, sizeof(value2));
+        break;
+      }
+    }
+    if (!ExpectNextJsonToken(reader, JSON_EndArray, out_err))
+      return false;
+    if (!ExpectNextJsonToken(reader, out_err))
+      return false;
+  }
+  if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+    return false;
+  
+  return true;
+}
+
 static bool DeserializeTcpHeader(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
   if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
     return false;
@@ -837,8 +968,6 @@ static bool DeserializeTcpHeader(JsonReader* reader, vector<uint8_t>* dest_buffe
     return false;
   }
   
-  tcp_header.doff = 5;
-  
   if (!ExpectCurrentPropertyName(reader, "flags", out_err))
     return false;
   
@@ -860,11 +989,25 @@ static bool DeserializeTcpHeader(JsonReader* reader, vector<uint8_t>* dest_buffe
       return false;
   }
   
-  // TODO: Deserialize TCP options
-  if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+  if (!ExpectNextJsonToken(reader, out_err))
     return false;
   
+  size_t tcp_header_offset = dest_buffer->size();
   AppendVectorU8(dest_buffer, &tcp_header, sizeof(tcp_header));
+  
+  size_t options_offset = dest_buffer->size();
+  if (!DeserializeTcpHeaderOptions(reader, dest_buffer, out_err))
+    return false;
+  size_t options_size = dest_buffer->size() - options_offset;
+  
+  // TODO: Perhaps we should automatically add NOPs if the JSON doesn't 
+  //       align things correctly
+  if (options_size  % 4 != 0)
+    return Error(out_err, "TCP header options are not padded correctly");
+  
+  tcphdr* p_tcp_header = reinterpret_cast<tcphdr*>(&(*dest_buffer)[tcp_header_offset]);
+  p_tcp_header->doff = (5 + options_size / 4) & 0x0f;
+  
   return true;
 }
 
@@ -893,7 +1036,6 @@ static bool DeserializeIcmpHeader(JsonReader* reader, vector<uint8_t>* dest_buff
   
   icmphdr icmp_header;
   memset(&icmp_header, 0, sizeof(icmp_header));
-  
   if (!ExpectNextEnumProperty(reader, "type", GetIcmpTypeLookupTable(), 
                           &icmp_header.type, out_err)) {
     return false;
@@ -968,6 +1110,44 @@ static bool DeserializeIcmpHeader(JsonReader* reader, vector<uint8_t>* dest_buff
   return true;
 }
 
+static void Add(const void* header, size_t size, uint32_t* result) {
+  const uint16_t* p = static_cast<const uint16_t*>(header);
+  const uint16_t* end = reinterpret_cast<const uint16_t*>(
+      static_cast<const uint8_t*>(header) + (size/2*2));
+  
+  for (; p < end; p++) {
+    *result += htons(*p);
+  }
+  
+  // if there is an odd number of bytes, we need to zero-pad
+  // the last byte
+  if (size & 0x01) {
+    *result += static_cast<const uint8_t*>(header)[size - 1] << 8;
+  }
+}
+
+static uint16_t ComputeIpChecksum(const void* pseudo_header, size_t pseudo_size,
+                           const void* header, size_t size) {
+  uint32_t result = 0;
+  Add(pseudo_header, pseudo_size, &result);
+  Add(header, size, &result);
+  return htons(static_cast<uint16_t>(~((result & 0xffff) + (result >> 16))));
+}
+
+static uint16_t ComputeIpChecksum(const void* header, size_t size) {
+  uint32_t result = 0;
+  Add(header, size, &result);
+  return htons(static_cast<uint16_t>(~((result & 0xffff) + (result >> 16))));
+}
+
+struct pseudo_header {
+  uint32_t source;
+  uint32_t dest;
+  uint8_t padding;
+  uint8_t protocol;
+  uint16_t length;
+};
+
 bool DeserializePacket(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
   if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
     return false;
@@ -978,7 +1158,6 @@ bool DeserializePacket(JsonReader* reader, vector<uint8_t>* dest_buffer, string*
     return false;
   
   const iphdr* ip_header = reinterpret_cast<const iphdr*>(&(*dest_buffer)[0]);
-  
   switch (ip_header->protocol) {
     case kProtocolTcp:
       if (!ExpectNextPropertyName(reader, "tcp", out_err))
@@ -1005,49 +1184,95 @@ bool DeserializePacket(JsonReader* reader, vector<uint8_t>* dest_buffer, string*
   if (!ExpectNextJsonToken(reader, out_err))
     return false;
   
-  if (reader->token_type() == JSON_EndObject)
-    return true;
-  
-  if (!ExpectCurrentPropertyName(reader, "data", out_err))
-    return false;
-  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
-    return false;
-  if (!ExpectNextPropertyName(reader, "type", out_err))
-    return false;
-  if (!ExpectNextJsonToken(reader, JSON_String, out_err))
-    return false;
-  
-  string data_type = reader->str_value();
-  if (data_type != "text" && data_type != "hex") {
-    return Error(out_err, "data type must be 'text' or 'hex', was '%s'", 
-                 data_type.c_str());
-  }
-  
-  if (!ExpectNextPropertyName(reader, "data", out_err))
-    return false;
-  if (!ExpectNextJsonToken(reader, JSON_StartArray, out_err))
-    return false;
-  
-  string data_str;
-  while (true) {
-    if (!ExpectNextJsonToken(reader, out_err))
+  if (reader->token_type() != JSON_EndObject) {
+    if (!ExpectCurrentPropertyName(reader, "data", out_err))
+      return false;
+    if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+      return false;
+    if (!ExpectNextPropertyName(reader, "type", out_err))
+      return false;
+    if (!ExpectNextJsonToken(reader, JSON_String, out_err))
       return false;
     
-    if (reader->token_type() == JSON_EndArray)
-      break;
-    
-    if (reader->token_type() != JSON_String) {
-      return Error(out_err, "Unexpected token '%s', expected 'String'", 
-                   GetJsonTokenName(reader->token_type()));
+    string data_type = reader->str_value();
+    if (data_type != "text" && data_type != "hex") {
+      return Error(out_err, "data type must be 'text' or 'hex', was '%s'", 
+                  data_type.c_str());
     }
     
-    data_str.append(reader->str_value());
+    if (!ExpectNextPropertyName(reader, "data", out_err))
+      return false;
+    if (!ExpectNextJsonToken(reader, JSON_StartArray, out_err))
+      return false;
+    
+    string data_str;
+    while (true) {
+      if (!ExpectNextJsonToken(reader, out_err))
+        return false;
+      
+      if (reader->token_type() == JSON_EndArray)
+        break;
+      
+      if (reader->token_type() != JSON_String) {
+        return Error(out_err, "Unexpected token '%s', expected 'String'", 
+                    GetJsonTokenName(reader->token_type()));
+      }
+      
+      data_str.append(reader->str_value());
+    }
+    if (data_type == "text") {
+      AppendVectorU8(dest_buffer, data_str.c_str(), data_str.size());
+    } else if (data_type == "hex") {
+      ParseHex(data_str.c_str(), dest_buffer);
+    }
+    
+    if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+      return false;
+    if (!ExpectNextJsonToken(reader, JSON_EndObject, out_err))
+      return false;
   }
   
-  if (data_type == "text") {
-    AppendVectorU8(dest_buffer, data_str.c_str(), data_str.size());
-  } else if (data_type == "hex") {
-    ParseHex(data_str.c_str(), dest_buffer);
+
+  
+  const size_t packet_size = dest_buffer->size();
+  iphdr* ip_hdr = reinterpret_cast<iphdr*>(&(*dest_buffer)[0]);
+  ip_hdr->tot_len = htons(static_cast<uint8_t>(packet_size));
+  size_t ip_header_size = ip_hdr->ihl * 4;
+  
+  ip_hdr->check = ComputeIpChecksum(ip_hdr, ip_header_size);
+  
+  void* sub_hdr = &(*dest_buffer)[ip_header_size];
+  
+  switch (ip_hdr->protocol) {
+    case kProtocolIcmp: {
+      icmphdr* icmp_header = static_cast<icmphdr*>(sub_hdr);
+      icmp_header->checksum = ComputeIpChecksum(sub_hdr, 
+                                                packet_size - ip_header_size);
+      break;
+    }
+    
+    case kProtocolTcp:
+    case kProtocolUdp: {
+      pseudo_header pseudo;
+      assert(sizeof(pseudo) == 12);
+      pseudo.source = ip_hdr->saddr;
+      pseudo.dest = ip_hdr->daddr;
+      pseudo.padding = 0;
+      pseudo.protocol = ip_hdr->protocol;
+      pseudo.length = htons(static_cast<uint16_t>(packet_size - ip_header_size));
+      uint16_t checksum = ComputeIpChecksum(&pseudo, sizeof(pseudo), sub_hdr, 
+                                            packet_size - ip_header_size);
+      
+      if (ip_hdr->protocol == kProtocolUdp) {
+        udphdr* udp_header = static_cast<udphdr*>(sub_hdr);
+        udp_header->len = htons(static_cast<uint16_t>(packet_size - ip_header_size));
+        udp_header->check = checksum;
+      } else {
+        tcphdr* tcp_header = static_cast<tcphdr*>(sub_hdr);
+        tcp_header->check = checksum;
+      }
+      break;
+    }
   }
   
   return true;

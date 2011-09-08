@@ -41,8 +41,8 @@ TEST(JsonPacketTest, SerializeTcpSyn) {
                           "\"seqNumber\":1736785026,"
                           "\"flags\":[\"SYN\"],"
                           "\"windowSize\":14600,"
-                          "\"options\":[[\"maxSegmentSize\",1460],\"sackPermitted\","
-                                       "[\"timestamp\",5278216,0],\"NOP\","
+                          "\"options\":[[\"maxSegmentSize\",1460],[\"sackPermitted\"],"
+                                       "[\"timestamp\",5278216,0],[\"NOP\"],"
                                        "[\"windowScale\",7]"
                           "]"
                         "}"
@@ -77,7 +77,7 @@ TEST(JsonPacketTest, SerializeTcpPacketWithData) {
                           "\"ackNumber\":2245680723,"
                           "\"flags\":[\"ACK\",\"PSH\"],"
                           "\"windowSize\":115,"
-                          "\"options\":[\"NOP\",\"NOP\",[\"timestamp\",20181366,51861029]]"
+                          "\"options\":[[\"NOP\"],[\"NOP\"],[\"timestamp\",20181366,51861029]]"
                         "},"
                         "\"data\":{\"type\":\"text\",\"data\":["
                             "\"GET / HTTP/1.1\\r\\n\","
@@ -157,20 +157,74 @@ TEST(JsonPacketTest, SerializeIcmpPacket) {
                       "}");
 }
 
-void TestJsonRoundTrip(const char* json) {
-  JsonReader reader(CreateBufferedInputStream(json));
+static vector<uint8_t> DeserializePacketOrFail(const char* json) {
   
+  JsonReader reader(CreateBufferedInputStream(json));
   vector<uint8_t> packet_data;
   string error_string;
   if (!DeserializePacket(&reader, &packet_data, &error_string))
-    FAIL() << "Packet serialization failed with message: " << error_string;
+    EXPECT_TRUE(false) << "Packet serialization failed with message: " << error_string;
+  
+  return packet_data;
+}
+
+static void AssertBinaryEqual(const vector<uint8_t>& a, const vector<uint8_t>& b) {
+  ASSERT_EQ(FormatHex(a.empty() ? NULL : &a[0], a.size()), 
+            FormatHex(b.empty() ? NULL : &b[0], b.size()));
+}
+
+TEST(JsonPacketTest, DeserializeTcpPacket) {
+  vector<uint8_t> packet = DeserializePacketOrFail("{"
+    "\"ip\":{"
+      "\"version\":4,"
+      "\"tos\":0,"
+      "\"id\":1642,"
+      "\"flags\":[\"DF\"],"
+      "\"fragmentOffset\":0,"
+      "\"ttl\":64,"
+      "\"protocol\":\"TCP\","
+      "\"source\":\"192.168.1.125\","
+      "\"destination\":\"72.14.204.147\""
+    "},"
+    "\"tcp\":{"
+      "\"sourcePort\":39570,"
+      "\"destPort\":80,"
+      "\"seqNumber\":1628108555,"
+      "\"ackNumber\":2245680723,"
+      "\"flags\":[\"ACK\",\"PSH\"],"
+      "\"windowSize\":115,"
+      "\"options\":[[\"NOP\"],[\"NOP\"],[\"timestamp\",20181366,51861029]]"
+    "},"
+    "\"data\":{\"type\":\"text\",\"data\":["
+        "\"GET / HTTP/1.1\\r\\n\","
+        "\"Accept: */*\\r\\n\","
+        "\"Host: www.google.com\\r\\n\","
+        "\"Connection: Keep-Alive\\r\\n\","
+        "\"\\r\\n\""
+      "]"
+    "}"
+  "}");
+  
+  AssertBinaryEqual(ParseHex(
+      "45000081066a400040065d46c0a8017d480ecc939a920050610af70b85da5e53801800"
+      "73090e00000101080a0133f17603175625474554202f20485454502f312e310d0a4163"
+      "636570743a202a2f2a0d0a486f73743a207777772e676f6f676c652e636f6d0d0a436f"
+      "6e6e656374696f6e3a204b6565702d416c6976650d0a0d0a"), packet); 
+}
+
+void TestJsonRoundTrip(const char* json) {
+
+  vector<uint8_t> packet_data = DeserializePacketOrFail(json);
+
   
   JsonWriterFixture fixture;
   SerializePacket(fixture.writer(), &packet_data[0], packet_data.size());
   fixture.AssertContents(json);
 }
 
-TEST(JsonPacketTest, DeserializeJsonTcpPacket) {
+
+
+TEST(JsonPacketTest, RoundTripTcpPacket) {
   TestJsonRoundTrip(
     "{"
       "\"ip\":{"
@@ -203,7 +257,7 @@ TEST(JsonPacketTest, DeserializeJsonTcpPacket) {
     "}");
 }
 
-TEST(JsonPacketTest, DeserializeJsonUdpPacket) {
+TEST(JsonPacketTest, RoundTripUdpPacket) {
   TestJsonRoundTrip(
     "{"
       "\"ip\":{"
@@ -229,7 +283,7 @@ TEST(JsonPacketTest, DeserializeJsonUdpPacket) {
     "}");
 }
 
-TEST(JsonPacketTest, DeserializeJsonIcmpPacket) {
+TEST(JsonPacketTest, RoundTripIcmpPacket) {
   TestJsonRoundTrip(
     "{"
       "\"ip\":{"
