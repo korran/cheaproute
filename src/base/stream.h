@@ -97,6 +97,20 @@ private:
   size_t pos_;
 };
 
+class FileInputStream : public InputStream {
+public:
+  FileInputStream(int fd, bool take_fd_ownership)
+    : fd_(fd), take_fd_ownership_(take_fd_ownership) {
+  }
+  FileInputStream(const char* file_path);
+  virtual ~FileInputStream();
+    
+  ssize_t Read(void* buf, size_t count);
+  
+private:
+  int fd_;
+  bool take_fd_ownership_;
+};
 
 class FileOutputStream : public OutputStream {
 public:

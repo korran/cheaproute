@@ -6,6 +6,9 @@
 
 #include <algorithm>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 namespace cheaproute {
 
@@ -130,6 +133,21 @@ void MemoryOutputStream::Write(const void* buf, size_t count) {
   }
   memcpy(&buffer_[pos_], buf, count);
   pos_ += count;
+}
+
+FileInputStream::FileInputStream(const char* file_path) {
+  fd_ = CheckFdOp(open(file_path, O_RDONLY), "While opening file");
+  take_fd_ownership_ = true;
+}
+
+ssize_t FileInputStream::Read(void* buf, size_t count) {
+  return CheckFdOp(read(fd_, buf, count), "While reading from file");
+}
+
+FileInputStream::~FileInputStream() {
+  if (take_fd_ownership_) {
+    close(fd_);
+  }
 }
 
 FileOutputStream::~FileOutputStream() {
