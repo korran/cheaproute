@@ -10,6 +10,7 @@
 #include "net/netlink.h"
 #include "net/netlink_monitor.h"
 #include "net/tun_interface.h"
+#include "net/interface_activator.h"
 #include "base/json_writer.h"
 #include "net/json_packet.h"
 
@@ -53,33 +54,6 @@ public:
   }
   
 private:
-  shared_ptr<ListenerHandle> listenerHandle_;
-};
-
-class InterfaceActivator : NetlinkListener {
-public:
-  InterfaceActivator(Netlink* netlink, NetlinkMonitor* netlink_monitor) {
-    netlink_ = CheckNotNull(netlink, "netlink");
-    CheckNotNull(netlink_monitor, "netlink_monitor");
-    listenerHandle_ = netlink_monitor->AddListener(this);
-  }
-  void ConfigureInterface(const string& ifname, Ip4AddressInfo address_info) {
-    interface_ip4_info_[ifname] = address_info;
-  }
-  
-  void InterfaceCreated(const NetInterfaceInfo& info) {
-    unordered_map<string, Ip4AddressInfo>::const_iterator i = 
-        interface_ip4_info_.find(info.name);
-        
-    if (i != interface_ip4_info_.end()) {
-      netlink_->SetDeviceStatus(info.index, true);
-      netlink_->SetDeviceIp4AddressInfo(info.index, i->second);
-    }
-  }
-  
-private:
-  Netlink* netlink_;
-  unordered_map<string, Ip4AddressInfo> interface_ip4_info_;
   shared_ptr<ListenerHandle> listenerHandle_;
 };
 
@@ -137,6 +111,7 @@ public:
   }
   
   void Init() {
+    // TODO: Remove hard-coded IP addresses
     interface_activator_->ConfigureInterface("crIN",  Ip4AddressInfo(
         Ip4Address(192, 168, 5, 1), Ip4Address(192, 168, 5, 255), 24));
     
