@@ -14,8 +14,9 @@ const char* kJsonTokenNames[] = {
 };
 
 const char* GetJsonTokenName(JsonToken token) {
-  if (token >= 0 && token < ArrayLength(kJsonTokenNames))
-    return kJsonTokenNames[token];
+  size_t i_token = static_cast<size_t>(token);
+  if (i_token < ArrayLength(kJsonTokenNames))
+    return kJsonTokenNames[i_token];
   return "Unknown";
 }
 
