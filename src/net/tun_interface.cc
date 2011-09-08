@@ -30,6 +30,8 @@ TunInterface::TunInterface(EventLoop* loop, const string& name) {
   req.ifr_flags = IFF_TUN | IFF_NO_PI;
   strcpy(req.ifr_name, name.c_str());
   CheckFdOp(ioctl(fd_.get(), TUNSETIFF, (void*) &req), "setting interface name");
+  CheckFdOp(ioctl(fd_.get(), TUNSETNOCSUM, 1), "disabling checksum validation"); 
+  
   printf("created TUN interface with name %s\n", req.ifr_name);
   
   ioTask_ = loop->MonitorFd(fd_.get(), kEvRead, bind(&TunInterface::HandleRead, this, _1));
@@ -43,6 +45,7 @@ TunInterface::TunInterface(EventLoop* loop, const string& name) {
 
 
 void TunInterface::SendPacket(const void* data, size_t size) {
+  
   ssize_t bytes_written = write(fd_.get(), data, size);
   if (bytes_written == -1) {
     if (errno == EAGAIN) {

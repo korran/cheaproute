@@ -59,8 +59,11 @@ string Ip4AddressInfo::ToString() const
   ss.Printf("[addr: %s", this->address.ToString().c_str());
   if (this->broadcast != kIp4Any) 
     ss.Printf(" bcast: %s", this->broadcast.ToString().c_str());
-  if (this->netmask != kIp4Any) 
-    ss.Printf(" mask: %s", this->netmask.ToString().c_str());
+  
+  Ip4Address netmask(htonl(0xffffffff << (32 - this->prefix_len)));
+  
+  if (this->prefix_len != 0) 
+    ss.Printf(" mask: %s", netmask.ToString().c_str());
   ss.Printf("]");
   return ss.str();
 }
