@@ -11,6 +11,7 @@
 #include <vector>
 #include <deque>
 #include <stack>
+#include <set>
 #include <cassert>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,9 +32,14 @@ namespace cheaproute
   using std::tr1::unordered_map;
   using std::deque;
   using std::stack;
+  using std::set;
+  using std::make_pair;
   
   void AbortWithMessage(const char* format_string, ...)
       __attribute__ ((format (printf, 1, 2)));
+  
+  void AbortWithPosixError(int err_no, const char* format_string, ...)
+      __attribute__ ((format (printf, 2, 3)));
       
   void AbortWithPosixError(const char* format_string, ...)
       __attribute__ ((format (printf, 1, 2)));

@@ -19,6 +19,17 @@ void AbortWithMessage(const char* format_string, ...) {
   abort();
 }
 
+void AbortWithPosixError(int errnum, const char* format_string, ...) {
+  va_list args;
+  va_start (args, format_string);
+  vfprintf (stderr, format_string, args);
+  va_end (args);
+  
+  char buf[1024];
+  fprintf(stderr, ": (%d) %s\n", errnum, strerror_r(errnum, buf, sizeof(buf)));
+  abort();
+}
+
 void AbortWithPosixError(const char* format_string, ...) {
   va_list args;
   va_start (args, format_string);
