@@ -160,6 +160,8 @@ TEST(JsonPacketTest, SerializeIcmpPacket) {
 static vector<uint8_t> DeserializePacketOrFail(const char* json) {
   
   JsonReader reader(CreateBufferedInputStream(json));
+  EXPECT_TRUE(reader.Next());
+  
   vector<uint8_t> packet_data;
   string error_string;
   if (!DeserializePacket(&reader, &packet_data, &error_string))

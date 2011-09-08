@@ -1149,7 +1149,7 @@ struct pseudo_header {
 };
 
 bool DeserializePacket(JsonReader* reader, vector<uint8_t>* dest_buffer, string* out_err) {
-  if (!ExpectNextJsonToken(reader, JSON_StartObject, out_err))
+  if (!ExpectCurrentJsonToken(reader, JSON_StartObject, out_err))
     return false;
   if (!ExpectNextPropertyName(reader, "ip", out_err))
     return false;
