@@ -1260,16 +1260,16 @@ bool DeserializePacket(JsonReader* reader, vector<uint8_t>* dest_buffer, string*
       pseudo.padding = 0;
       pseudo.protocol = ip_hdr->protocol;
       pseudo.length = htons(static_cast<uint16_t>(packet_size - ip_header_size));
-      uint16_t checksum = ComputeIpChecksum(&pseudo, sizeof(pseudo), sub_hdr, 
-                                            packet_size - ip_header_size);
       
       if (ip_hdr->protocol == kProtocolUdp) {
         udphdr* udp_header = static_cast<udphdr*>(sub_hdr);
         udp_header->len = htons(static_cast<uint16_t>(packet_size - ip_header_size));
-        udp_header->check = checksum;
+        udp_header->check = ComputeIpChecksum(&pseudo, sizeof(pseudo), sub_hdr, 
+                                              packet_size - ip_header_size);
       } else {
         tcphdr* tcp_header = static_cast<tcphdr*>(sub_hdr);
-        tcp_header->check = checksum;
+        tcp_header->check = ComputeIpChecksum(&pseudo, sizeof(pseudo), sub_hdr, 
+                                              packet_size - ip_header_size);;
       }
       break;
     }

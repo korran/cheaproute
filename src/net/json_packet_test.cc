@@ -214,6 +214,35 @@ TEST(JsonPacketTest, DeserializeTcpPacket) {
       "6e6e656374696f6e3a204b6565702d416c6976650d0a0d0a"), packet); 
 }
 
+TEST(JsonPacketTest, DeserializeUdpPacket) {
+  vector<uint8_t> packet = DeserializePacketOrFail("{"
+                        "\"ip\":{"
+                          "\"version\":4,"
+                          "\"tos\":0,"
+                          "\"id\":54260,"
+                          "\"flags\":[],"
+                          "\"fragmentOffset\":0,"
+                          "\"ttl\":64,"
+                          "\"protocol\":\"UDP\","
+                          "\"source\":\"192.168.1.132\","
+                          "\"destination\":\"8.8.8.8\""
+                        "},"
+                        "\"udp\":{"
+                          "\"sourcePort\":51680,"
+                          "\"destPort\":53"
+                        "},"
+                        "\"data\":{\"type\":\"hex\",\"data\":["
+                            "\"45 35 01 00 00 01 00 00  00 00 00 00 03 77 77 77\","
+                            "\"06 67 6f 6f 67 6c 65 03  63 6f 6d 00 00 01 00 01\""
+                          "]"
+                        "}"
+                      "}");
+  
+  AssertBinaryEqual(ParseHex(
+    "4500003cd3f400004011d480c0a8018408080808c9e0003500288f6f45350100000100"
+    "00000000000377777706676f6f676c6503636f6d0000010001"), packet);
+}
+
 void TestJsonRoundTrip(const char* json) {
 
   vector<uint8_t> packet_data = DeserializePacketOrFail(json);
