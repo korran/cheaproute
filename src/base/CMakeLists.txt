@@ -10,6 +10,7 @@ add_library(cheaproute-base
   stream.cc)
 
 add_executable(cheaproute-base-tests
+               broadcaster_test.cc
                common_test.cc
                json_reader_test.cc
                json_writer_test.cc
