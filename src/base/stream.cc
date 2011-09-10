@@ -13,8 +13,8 @@
 namespace cheaproute {
 
   
-BufferedInputStream::BufferedInputStream(TransferredOwnershipPtr<InputStream> delegatee, size_t buffer_size) 
-  : delegatee_(delegatee.Release()) {
+BufferedInputStream::BufferedInputStream(shared_ptr<InputStream> delegatee, size_t buffer_size) 
+  : delegatee_(delegatee) {
   buffer_.resize(buffer_size);
   pos_ = buffer_.begin();
   end_ = buffer_.begin();
@@ -75,8 +75,8 @@ int BufferedInputStream::ReadSlowPath() {
     return -1;
 }
 
-BufferedOutputStream::BufferedOutputStream(TransferredOwnershipPtr<OutputStream> delegatee, size_t buffer_size)
-    : delegatee_(delegatee.Release()) {
+BufferedOutputStream::BufferedOutputStream(shared_ptr<OutputStream> delegatee, size_t buffer_size)
+    : delegatee_(delegatee) {
   buffer_.resize(buffer_size);
   pos_ = buffer_.begin();
   end_ = buffer_.end();

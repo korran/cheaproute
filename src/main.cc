@@ -75,8 +75,9 @@ public:
   PacketLogger() {
     FileOutputStream* file_output_stream = new FileOutputStream(STDOUT_FILENO, false);
     
-    writer_.reset(new JsonWriter(TransferOwnership(new BufferedOutputStream(
-          TransferOwnership<OutputStream>(file_output_stream), 4096)), JsonWriterFlags_Indent));
+    writer_.reset(new JsonWriter(shared_ptr<BufferedOutputStream>(
+        new BufferedOutputStream(shared_ptr<OutputStream>(file_output_stream), 
+                                 4096)), JsonWriterFlags_Indent));
   }
   
   void PacketReceived(const void* data, size_t size)  {

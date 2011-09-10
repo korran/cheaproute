@@ -24,8 +24,9 @@ private:
   void Init(JsonWriterFlags flags) {
     mem_output_stream_ = new MemoryOutputStream();
     
-    writer_.reset(new JsonWriter(TransferOwnership(new BufferedOutputStream(
-      TransferOwnership<OutputStream>(mem_output_stream_), 4096)), flags));
+    writer_.reset(new JsonWriter(shared_ptr<BufferedOutputStream>(
+      new BufferedOutputStream(shared_ptr<OutputStream>(mem_output_stream_),
+                               4096)), flags));
   }
   MemoryOutputStream* mem_output_stream_;
   scoped_ptr<JsonWriter> writer_;

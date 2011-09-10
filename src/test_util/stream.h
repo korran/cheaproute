@@ -18,10 +18,10 @@ namespace cheaproute {
     size_t max_read_size_;
   };
   
-  inline TransferredOwnershipPtr<BufferedInputStream> 
+  inline shared_ptr<BufferedInputStream> 
               CreateBufferedInputStream(const char* str) {
-    return TransferOwnership(new BufferedInputStream(
-      TransferOwnership<InputStream>(new FakeInputStream(1000000, str)), 4096));
+    return shared_ptr<BufferedInputStream>(new BufferedInputStream(
+      shared_ptr<InputStream>(new FakeInputStream(1000000, str)), 4096));
   }
   void AssertStreamContents(const string& expected_contents,
                                 const MemoryOutputStream* stream);

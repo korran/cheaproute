@@ -43,8 +43,8 @@ static void AppendCharacterAsUtf8(string* dest, int ch) {
   }
 }
 
-JsonReader::JsonReader(TransferredOwnershipPtr<BufferedInputStream> stream)
-  : stream_(stream.Release()),
+JsonReader::JsonReader(shared_ptr<BufferedInputStream> stream)
+  : stream_(stream),
     error_code_(JsonError_None),
     token_type_(JSON_None),
     mode_(JsonMode_DocumentStart),

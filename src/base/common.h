@@ -92,36 +92,7 @@ namespace cheaproute
       __attribute__ ((format (printf, 1, 2)));
       
   string VStrPrintf(const char* format_string, va_list argp);
-  
-  // This class is used to indicate that we are
-  // transferring ownership of an object
-  template<typename T>
-  class TransferredOwnershipPtr {
-  public:
-    T* Release() {
-      assert(ptr_);
-      T* result = ptr_;
-      ptr_ = NULL;
-      return result;
-    }
     
-  private:
-    // Use TransferOwnership() to create one of these
-    TransferredOwnershipPtr(T* ptr) 
-        : ptr_(ptr) {
-      assert(ptr_);
-    }
-    T* ptr_;
-    
-    template<class U>
-    friend TransferredOwnershipPtr<U> TransferOwnership(U* ptr);
-  };
-  
-  template<typename T>
-  TransferredOwnershipPtr<T> TransferOwnership(T* ptr) {
-    return TransferredOwnershipPtr<T>(ptr);
-  }
-  
   template <class T, size_t N>
   size_t ArrayLength(T (&x)[N]) { 
     return N;

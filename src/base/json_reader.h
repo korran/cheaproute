@@ -41,7 +41,7 @@ enum JsonMode {
 
 class JsonReader {
 public:
-  JsonReader(TransferredOwnershipPtr<BufferedInputStream> stream);
+  JsonReader(shared_ptr<BufferedInputStream> stream);
   
   JsonToken token_type() const { return token_type_; }
   const string& str_value() const { return str_value_; }
@@ -60,7 +60,7 @@ private:
   bool ReadUnicodeEscapeCharacter(int* out_char);
   bool PopMode();
   
-  scoped_ptr<BufferedInputStream> stream_;
+  shared_ptr<BufferedInputStream> stream_;
   JsonError error_code_;
   JsonToken token_type_;
   JsonMode mode_;

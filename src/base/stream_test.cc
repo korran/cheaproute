@@ -7,7 +7,7 @@
 namespace cheaproute {
 
 static void TestCharacterByCharacter(size_t max_read_size, size_t buffer_size) {
-  BufferedInputStream stream(TransferOwnership<InputStream>(
+  BufferedInputStream stream(shared_ptr<InputStream>(
     new FakeInputStream(max_read_size, "Hello World!")), buffer_size);
   
   ASSERT_EQ('H', stream.Peek());
@@ -51,7 +51,7 @@ static string ReadString(InputStream* stream, size_t size) {
 }
 
 TEST(BufferedInputStreamTest, NormalReading) {
-  BufferedInputStream stream(TransferOwnership<InputStream>(
+  BufferedInputStream stream(shared_ptr<InputStream>(
     new FakeInputStream(6, "Hello World!")), 4);
   
   ASSERT_EQ("Hello ", ReadString(&stream, 6));
@@ -63,7 +63,7 @@ TEST(BufferedInputStreamTest, NormalReading) {
 
 TEST(BufferedOutputStreamTest, CharacterByCharacterWriting) {
   MemoryOutputStream* memOutStream = new MemoryOutputStream();
-  BufferedOutputStream stream(TransferOwnership<OutputStream>(memOutStream), 5);
+  BufferedOutputStream stream(shared_ptr<OutputStream>(memOutStream), 5);
   stream.Write('a');
   stream.Write('b');
   stream.Write('c');
@@ -77,7 +77,7 @@ TEST(BufferedOutputStreamTest, CharacterByCharacterWriting) {
 
 TEST(BufferedOutputStreamTest, SmallWrites) {
   MemoryOutputStream* memOutStream = new MemoryOutputStream();
-  BufferedOutputStream stream(TransferOwnership<OutputStream>(memOutStream), 5);
+  BufferedOutputStream stream(shared_ptr<OutputStream>(memOutStream), 5);
   stream.Write("ab", 2);
   stream.Write("cd", 2);
   stream.Write("ef", 2);
@@ -88,7 +88,7 @@ TEST(BufferedOutputStreamTest, SmallWrites) {
 
 TEST(BufferedOutputStreamTest, SmallWriteThenBigWrite) {
   MemoryOutputStream* memOutStream = new MemoryOutputStream();
-  BufferedOutputStream stream(TransferOwnership<OutputStream>(memOutStream), 5);
+  BufferedOutputStream stream(shared_ptr<OutputStream>(memOutStream), 5);
   stream.Write("ab", 2);
   stream.Write("cdefghijkl", 10);
   stream.Flush();

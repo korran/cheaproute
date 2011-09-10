@@ -6,13 +6,14 @@
 
 namespace cheaproute {
   
-JsonWriter::JsonWriter(TransferredOwnershipPtr<BufferedOutputStream> stream, 
+JsonWriter::JsonWriter(shared_ptr<BufferedOutputStream> stream, 
                        JsonWriterFlags flags)
-  : flags_(flags),
+  : stream_(stream),
+    flags_(flags),
     mode_(JsonWriterMode_DocumentStart),
     indent_(0),
     pack_(0) {
-  stream_.reset(stream.Release());
+  
 }
 
 void JsonWriter::Flush() {

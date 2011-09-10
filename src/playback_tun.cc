@@ -50,9 +50,8 @@ public:
   
 private:
   void Playback() {
-    JsonReader reader(TransferOwnership(new BufferedInputStream(
-        TransferOwnership<InputStream>(
-        new FileInputStream(packet_log_file_.c_str())), 4096)));
+    JsonReader reader(shared_ptr<BufferedInputStream>(new BufferedInputStream(
+        shared_ptr<InputStream>(new FileInputStream(packet_log_file_.c_str())), 4096)));
     
     if (!reader.Next() || reader.token_type() != JSON_StartArray)
       AbortWithMessage("Expected start of array at top of json packet log");

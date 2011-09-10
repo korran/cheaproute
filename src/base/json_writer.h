@@ -21,7 +21,7 @@ enum JsonWriterFlags {
 
 class JsonWriter {
 public:
-  JsonWriter(TransferredOwnershipPtr<BufferedOutputStream> stream, 
+  JsonWriter(shared_ptr<BufferedOutputStream> stream, 
              JsonWriterFlags flags);
   
   void WritePropertyName(const string& str) { WritePropertyName(str.c_str()); }
@@ -53,12 +53,12 @@ private:
   
   bool should_indent() const { return flags_ & JsonWriterFlags_Indent; }
   
+  shared_ptr<BufferedOutputStream> stream_;
   JsonWriterFlags flags_;
   JsonWriterMode mode_;
   int indent_;
   int pack_;
   stack<JsonWriterMode> mode_stack_;
-  scoped_ptr<BufferedOutputStream> stream_;
 };
   
 }

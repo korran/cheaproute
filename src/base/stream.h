@@ -19,7 +19,7 @@ public:
 
 class BufferedInputStream : public InputStream {
 public:
-  BufferedInputStream(TransferredOwnershipPtr<InputStream> delegatee, 
+  BufferedInputStream(shared_ptr<InputStream> delegatee, 
                       size_t buffer_size);
   
   ssize_t Read(void* buf, size_t count);
@@ -46,7 +46,7 @@ private:
   int PeekSlowPath();
   ssize_t FillBuffer();
   
-  scoped_ptr<InputStream> delegatee_;
+  shared_ptr<InputStream> delegatee_;
   vector<uint8_t> buffer_;
   vector<uint8_t>::iterator pos_;
   vector<uint8_t>::iterator end_;
@@ -54,7 +54,7 @@ private:
 
 class BufferedOutputStream : public OutputStream {
 public:
-  BufferedOutputStream(TransferredOwnershipPtr<OutputStream> delegatee, size_t buffer_size);
+  BufferedOutputStream(shared_ptr<OutputStream> delegatee, size_t buffer_size);
   
   void Write(char ch) {
     *pos_++ = ch;
@@ -66,7 +66,7 @@ public:
   void Flush();
   
 private:
-  scoped_ptr<OutputStream> delegatee_;
+  shared_ptr<OutputStream> delegatee_;
   vector<uint8_t> buffer_;
   vector<uint8_t>::iterator pos_;
   vector<uint8_t>::iterator end_;
